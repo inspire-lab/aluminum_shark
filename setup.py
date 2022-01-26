@@ -7,7 +7,7 @@ with open("README.md", "r") as fh:
 # TODO: dependency handling
 setup(
     name='aluminum_shark',
-    version='0.0.1',
+    version='0.1.0',
     description=
     'Privacy Preserving Neural Networks with TensorFlow und Homomorphic Encryption',
     long_description=long_description,

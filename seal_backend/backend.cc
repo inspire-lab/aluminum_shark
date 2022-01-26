@@ -61,5 +61,6 @@ HEContext* SEALBackend::createContextCKKS(size_t poly_modulus_degree,
 
 const std::string& SEALBackend::name() { return BACKEND_NAME; }
 const std::string& SEALBackend::to_string() { return BACKEND_STRING; }
+const API_VERSION& SEALBackend::api_version() { return _version; }
 
 }  // namespace aluminum_shark

@@ -1,5 +1,6 @@
 import os
 from numpy import dtype
+from rsa import decrypt
 # os.environ['TF_CPP_MIN_LOG_LEVEL'] = '0'
 # os.environ['TF_CPP_MAX_VLOG_LEVEL'] = '1'
 os.environ['ALUMINUM_SHARK_LOGGING'] = '1'
@@ -8,7 +9,7 @@ os.environ['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices'
 os.environ['TF_DUMP_GRAPH_PREFIX'] = \
      '/home/robert/workspace/aluminum_shark/messing_around/graph_dump'
 import tensorflow as tf
-import aluminum_shark as shark
+import aluminum_shark.core as shark
 
 print('TF version', tf.__version__)
 
@@ -40,7 +41,9 @@ with tf.device("/device:XLA_HE:0"):
 result_ctxt = shark.get_ciphertexts()
 
 # decrypt
-print(context.decrypt_double(result_ctxt))
+decrypted = context.decrypt_double(result_ctxt)[:4]
+print(decrypted)
+assert all([abs(x - y**2) < 0.001 for x, y in zip(decrypted, x_in)])
 
 # clean up
 backend.destroy()

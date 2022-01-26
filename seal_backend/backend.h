@@ -17,7 +17,7 @@ namespace aluminum_shark {
 
 class SEALBackend : public HEBackend {
  public:
-  SEALBackend(){};
+  SEALBackend() : _version(API_VERSION()){};
   virtual ~SEALBackend(){};
 
   // Create an HEContect
@@ -30,6 +30,10 @@ class SEALBackend : public HEBackend {
 
   virtual const std::string& name() override;
   virtual const std::string& to_string() override;
+  virtual const API_VERSION& api_version();
+
+ private:
+  const API_VERSION _version;
 };
 
 }  // namespace aluminum_shark
