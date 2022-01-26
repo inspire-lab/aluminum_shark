@@ -17,10 +17,5 @@ setup(
     url='https://github.com/podschwadt/aluminum_shark',
     package_dir={"": "python"},
     packages=find_packages(where="python"),
-    #     include_package_data=True,
-    #     package_data={
-    #         'seal_backend': ['aluminum_shark_seal.so'],
-    #     },
-    data_files=[
-        ('', ['seal_backend/aluminum_shark_seal.so']),
-    ])
+    package_data={'aluminum_shark': ['aluminum_shark_seal.so']},
+    zip_safe=False)

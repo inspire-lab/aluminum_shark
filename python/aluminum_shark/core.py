@@ -13,6 +13,10 @@ def AS_LOG(*args, **kwargs):
         **kwargs)
 
 
+__DEFAULT_BACKEND__ = os.path.join(os.path.dirname(__file__),
+                                   'aluminum_shark_seal.so')
+AS_LOG('default backend: ', __DEFAULT_BACKEND__)
+
 # get the tensorflow shared library path
 tf_dir = tf.__file__[:-12]  # strip away file name '__init__.py'
 tf_lib_path = os.path.join(tf_dir, 'python', '_pywrap_tensorflow_internal.so')
@@ -322,7 +326,7 @@ class Context(ObjectCleaner):
 # A class encasuplating an HE backend
 class HEBackend(ObjectCleaner):
 
-  def __init__(self, path: str) -> None:
+  def __init__(self, path: str = __DEFAULT_BACKEND__) -> None:
     super().__init__()
     if not os.path.exists(path):
       raise FileNotFoundError('Can\'t find backend shared library: ' + path)

@@ -19,5 +19,8 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cc
 
 .PHONY : clean
 
-make clean:
+clean:
 	rm -f $(OBJ_DIR)/*.o  aluminum_shark_seal.so 
+
+install:
+	ln -s  ../../seal_backend/aluminum_shark_seal.so ../python/aluminum_shark/aluminum_shark_seal.so
