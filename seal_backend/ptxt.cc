@@ -37,6 +37,14 @@ SEALPtxt SEALPtxt::rescale(double scale) const {
   }
 }
 
+SEALPtxt SEALPtxt::scaleToMatch(const SEALPtxt& ptxt) const {
+  return rescale(std::log2(ptxt.sealPlaintext().scale()));
+}
+
+SEALPtxt SEALPtxt::scaleToMatch(const SEALCtxt& ctxt) const {
+  return rescale(std::log2(ctxt.sealCiphertext().scale()));
+}
+
 // template instantiation
 template void SEALPtxt::operation<double>(
     const SEALPtxt& other, const std::function<double(double, double)>& op,

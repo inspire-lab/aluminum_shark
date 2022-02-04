@@ -106,7 +106,9 @@ HECtxt* SEALCtxt::operator+(const HEPtxt* other) {
   std::cout << "Created result Ctxt " << result->to_string() << std::endl;
   std::cout << _internal_ctxt.scale() << std::endl;
   std::cout << ptxt->sealPlaintext().scale() << std::endl;
-  SEALPtxt rescaled = ptxt->rescale(_internal_ctxt.scale());
+  SEALPtxt rescaled = ptxt->scaleToMatch(*this);
+  std::cout << "rescaled ptxt scalte:" << rescaled.sealPlaintext().scale()
+            << std::endl;
   try {
     _context._evaluator->add_plain(_internal_ctxt, rescaled.sealPlaintext(),
                                    result->sealCiphertext());

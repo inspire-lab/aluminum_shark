@@ -209,7 +209,12 @@ HEPtxt* SEALContext::encode(const std::vector<long>& plain) const {
     return encode(double_vec);
   } else {
     // create plaintext
-    _batchencoder->encode(plain, ptxt_ptr->sealPlaintext());
+    if (plain.size() == 1) {
+      _batchencoder->encode(std::vector<long>(plain[0], _slot_count),
+                            ptxt_ptr->sealPlaintext());
+    } else {
+      _batchencoder->encode(plain, ptxt_ptr->sealPlaintext());
+    }
   }
   return ptxt_ptr;
 }
@@ -236,7 +241,12 @@ HEPtxt* SEALContext::encode(const std::vector<double>& plain,
                             double scale) const {
   SEALPtxt* ptxt_ptr =
       new SEALPtxt(seal::Plaintext(), CONTENT_TYPE::DOUBLE, *this);
-  _ckksencoder->encode(plain, std::pow(2, scale), ptxt_ptr->sealPlaintext());
+  if (plain.size() == 1) {
+    _ckksencoder->encode(plain[0], std::pow(2, scale),
+                         ptxt_ptr->sealPlaintext());
+  } else {
+    _ckksencoder->encode(plain, std::pow(2, scale), ptxt_ptr->sealPlaintext());
+  }
   return ptxt_ptr;
 }
 

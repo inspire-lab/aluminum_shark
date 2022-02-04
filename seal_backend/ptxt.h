@@ -54,7 +54,12 @@ class SEALPtxt : public HEPtxt {
 
   CONTENT_TYPE content_type() const;
 
+  // rescale the plaintext to 2^scale
   SEALPtxt rescale(double scale) const;
+
+  SEALPtxt scaleToMatch(const SEALPtxt& ptxt) const;
+
+  SEALPtxt scaleToMatch(const SEALCtxt& ctxt) const;
 
  protected:
   seal::Plaintext _internal_ptxt;
