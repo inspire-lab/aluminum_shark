@@ -1,1 +1,2 @@
 include  seal_backend/aluminum_shark_seal.so
+global-exclude test_*.py
