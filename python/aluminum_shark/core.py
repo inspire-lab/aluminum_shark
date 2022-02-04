@@ -8,6 +8,10 @@ from inspect import currentframe, stack
 
 
 def AS_LOG(*args, **kwargs):
+  """
+  Loggin function. Logs the filename and line it was called from. `args` and 
+  `kwargs` are forwarded to `print`.
+  """
   cf = currentframe()
   print("Aluminum Shark:", f"{stack()[1][1]}:{cf.f_back.f_lineno}" + "]", *args,
         **kwargs)
@@ -154,7 +158,7 @@ class ObjectCleaner(object):
   """
   Interface for registering objects and cleaning up objects.
 
-  If an `parent` is specified it should also be an instance of `ObjectCleaner`. 
+  If a `parent` is specified it should also be an instance of `ObjectCleaner`. 
   In this case the cleanup will happen recursivly.
   """
 
@@ -164,17 +168,27 @@ class ObjectCleaner(object):
     self.parent = parent
 
   def register_object(self, object) -> None:
+    """
+    Register `object` to be destroyed before `self` is destroyed.
+    """
     self.objects.add(object)
     if self.parent is not None:
       self.parent.register(object)
 
   def remove_object(self, object) -> None:
+    """
+    Remove `object` from the list of objects that need to be destroyed together 
+    with this object.
+    """
     if object in self.objects:
       self.objects.remove(object)
     if self.parent is not None:
       self.parent.remove(object)
 
   def destroy(self) -> None:
+    """
+    Calls destroy on all registerd objects and removes itself from parent.
+    """
     if self.parent is not None:
       self.parent.remove(self)
     for o in self.objects:
@@ -184,10 +198,10 @@ class ObjectCleaner(object):
 # Wraps around a ciphertext
 class CipherText(ObjectCleaner):
   """
-  Provides access to the C++ ciphertext
+  A ciphertext object. It is valid as long as its `_handle` is not `None`. 
   """
 
-  def __init__(self, handle: ctypes.c_void_p, context) -> None:
+  def __init__(self, handle: ctypes.c_void_p, context: "Context") -> None:
     super().__init__(parent=context)
     self.__handle = handle
     self.__context = context
@@ -198,21 +212,35 @@ class CipherText(ObjectCleaner):
 
   @property
   def context(self):
+    """
+    The context the ciphertext was created by.
+    """
     return self.__context
 
   def destroy(self) -> None:
+    """
+    Cleans up the ressources used by the ciphertext. Leaves it in an unuseable
+    state.
+    """
     super().destroy()
     tf_lib.aluminum_shark_DestroyCiphertext(self.__handle)
     self.__handle = None
 
   def register_object(self, object) -> None:
     """
-    Don't register objects to ciphertexts
+    Does nothing for Ciphertexts
     """
     pass
 
 
 class Context(ObjectCleaner):
+  """
+  An HE context. Provides functions for encryption, decryption and key managment.
+  Currently it does not know what plaintext space it supports. The encryption 
+  method tries to infer the data type or it can be passed explicitly.
+
+  At the moment there is no accesiable `Plaintext`.  
+  """
 
   context_map = {}
 
@@ -220,7 +248,7 @@ class Context(ObjectCleaner):
   def find_context(handle):
     return Context.context_map[handle]
 
-  def __init__(self, handle: ctypes.c_void_p, backend) -> None:
+  def __init__(self, handle: ctypes.c_void_p, backend: "HEBackend") -> None:
     super().__init__(parent=backend)
     self.__handle = handle
     self.__n_slots = number_of_slots_func(self.__handle)
@@ -230,18 +258,36 @@ class Context(ObjectCleaner):
     Context.context_map[handle] = self
     AS_LOG("Created Context", self)
 
-  def encrypt(self, ptxt, name=None, dtype=int) -> None:
+  def encrypt(self,
+              ptxt: List[Union[int, float]],
+              name: Union[None, str] = None,
+              dtype=None) -> CipherText:
+    """
+    Takes `list` of numbers as `ptxt` and encrypts it. It tries to infer the
+    encoding from the passed plaintexts if `dtype` is `None`. If type inference 
+    is used it will be `float` iff any value in `ptxt` is `float. Otherwise it
+    they are all assumed to be of type `int`. Type inference can be disabled by 
+    passing the desired type as `dtype`. This causes all values in `ptxt` to be
+    cast to either `int` or `float`.
+
+    A ciphertext can be given a name for debuggin purposes. If no name is passed
+    a UUID will be generated.
+
+    Returns: encrypted `Ciphertext`
+    """
     if name is None:
       name = str(uuid.uuid1())
 
     # determine data type
-    is_float = dtype == float or any([isinstance(x, float) for x in ptxt])
+    is_float = dtype == float or any([isinstance(x, float)
+                                      for x in ptxt]) and dtype is None
     # convert ptxt list
     if is_float:
       ptxt = [float(x) for x in ptxt]
       ptxt_ptr_t = ctypes.c_double * len(ptxt)
       __enc_func = encrypt_double_func
     else:
+      ptxt = [int(x) for x in ptxt]
       ptxt_ptr_t = ctypes.c_long * len(ptxt)
       __enc_func = encrypt_long_func
     ptxt_ptr = ptxt_ptr_t(*ptxt)
@@ -253,9 +299,15 @@ class Context(ObjectCleaner):
     return CipherText(handle=ctxt_handle, context=self)
 
   def decrypt_long(self, ctxt: CipherText) -> List[int]:
+    """
+    Decrypt the `ctxt` and decode it as `int`.
+    """
     return self.__decrypt_internal(ctxt, decrypt_long_func, int)
 
   def decrypt_double(self, ctxt: CipherText) -> List[float]:
+    """
+    Decrypt the `ctxt` and decode it as `float`.
+    """
     return self.__decrypt_internal(ctxt, decrypt_double_func, float)
 
   def __decrypt_internal(self, ctxt: CipherText, decrypt_func,
@@ -325,6 +377,9 @@ class Context(ObjectCleaner):
 
 # A class encasuplating an HE backend
 class HEBackend(ObjectCleaner):
+  """
+  An HEBackend. By default loads the SEAL backend.
+  """
 
   def __init__(self, path: str = __DEFAULT_BACKEND__) -> None:
     super().__init__()
@@ -391,6 +446,9 @@ def debug_on(flag: bool) -> None:
 
 
 def set_ciphertexts(ctxts: Union[CipherText, List[CipherText]]) -> None:
+  """
+  Set ciphertexts to be used in the next computation.
+  """
   # check if we deal with a list
   try:
     _ = (e for e in ctxts)
@@ -402,6 +460,10 @@ def set_ciphertexts(ctxts: Union[CipherText, List[CipherText]]) -> None:
 
 
 def get_ciphertexts() -> CipherText:
+  """
+  Retrieve the result of the last compuation. If no computation has been 
+  performed the behaviour of this funtion is undefined.
+  """
   # print("aluminum_shark.get_ciphertexts")
   context_ptr = ctypes.c_void_p()
   print(context_ptr)
