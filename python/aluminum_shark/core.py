@@ -3,8 +3,54 @@ import warnings
 import os
 import ctypes
 import tensorflow as tf
-from typing import Union, List
+from typing import Union, List, Iterable
 from inspect import currentframe, stack
+import numpy as np
+
+
+class EncryptedExecution():
+
+  def __init__(self, model_fn, *args, **kwargs) -> None:
+    with tf.device("/device:XLA_HE:0"):
+      self.__model = model_fn(*args, **kwargs)
+
+      @tf.function(jit_compile=True)
+      def f(*args):
+        return self.__model(*args)
+
+      self.__func = f
+
+  def __call__(self, *args) -> 'Ciphertext':
+
+    assert (all([isinstance(x, CipherText) for x in args]))
+    set_ciphertexts(args)
+
+    # generate dummy inputs
+    with tf.device("/device:XLA_HE:0"):
+      dummies = [tf.convert_to_tensor(np.ones(x.shape)) for x in args]
+      # print(dummies)
+      self.__func(*dummies)
+    return get_ciphertexts()
+
+
+# TODO: remove
+
+
+def encrypted_execution(
+    func,
+    model_fn,
+    model_fn_args=(),
+):
+
+  def inner(*args, **kwargs):
+    with tf.device("/device:XLA_HE:0"):
+      model = model_fn(*model_fn_args)
+
+    @tf.function(jit_compile=True)
+    def f(*args):
+      model(*args)
+
+  return inner
 
 
 def AS_LOG(*args, **kwargs):
@@ -201,10 +247,12 @@ class CipherText(ObjectCleaner):
   A ciphertext object. It is valid as long as its `_handle` is not `None`. 
   """
 
-  def __init__(self, handle: ctypes.c_void_p, context: "Context") -> None:
+  def __init__(self, handle: ctypes.c_void_p, context: "Context",
+               shape: Iterable[int]) -> None:
     super().__init__(parent=context)
     self.__handle = handle
     self.__context = context
+    self.__shape = shape
 
   @property
   def _handle(self):
@@ -216,6 +264,10 @@ class CipherText(ObjectCleaner):
     The context the ciphertext was created by.
     """
     return self.__context
+
+  @property
+  def shape(self):
+    return self.__shape
 
   def destroy(self) -> None:
     """
@@ -261,7 +313,8 @@ class Context(ObjectCleaner):
   def encrypt(self,
               ptxt: List[Union[int, float]],
               name: Union[None, str] = None,
-              dtype=None) -> CipherText:
+              dtype=None,
+              shape: Union[None, Iterable[int]] = None) -> CipherText:
     """
     Takes `list` of numbers as `ptxt` and encrypts it. It tries to infer the
     encoding from the passed plaintexts if `dtype` is `None`. If type inference 
@@ -277,6 +330,15 @@ class Context(ObjectCleaner):
     """
     if name is None:
       name = str(uuid.uuid1())
+
+    if shape is None:
+      if hasattr(ptxt, 'shape'):
+        shape = ptxt.shape
+      else:
+        shape = (len(ptxt),)
+
+    if hasattr(ptxt, 'reshape'):
+      ptxt = ptxt.reshape(-1)
 
     # determine data type
     is_float = dtype == float or any([isinstance(x, float)
@@ -296,7 +358,7 @@ class Context(ObjectCleaner):
     # convert name
     name_arg = ctypes.c_char_p(str.encode(name))
     ctxt_handle = __enc_func(ptxt_ptr, len(ptxt), name_arg, self.__handle)
-    return CipherText(handle=ctxt_handle, context=self)
+    return CipherText(handle=ctxt_handle, context=self, shape=shape)
 
   def decrypt_long(self, ctxt: CipherText) -> List[int]:
     """
@@ -475,4 +537,5 @@ def get_ciphertexts() -> CipherText:
   print(context_ptr)
   print(hex(context_ptr.value))
   context = Context.find_context(context_ptr.value)
-  return CipherText(handle=ctxt_handle, context=context)
+  return CipherText(handle=ctxt_handle, context=context,
+                    shape=None)  # FIXME: shape information
