@@ -11,7 +11,7 @@ else
   git clone --depth 1 --branch ${SEAL_VERSION} git@github.com:microsoft/SEAL.git dependencies/SEAL
 fi
 echo ALUMINUM_SHARK_TF_VERSION ${ALUMINUM_SHARK_TF_VERSION}
-if [ -d "dependencies/SEAL" ] 
+if [ -d "dependencies/tensorflow" ] 
 then
   git -C fetch dependencies/tensorflow
   git -C dependencies/tensorflow switch ${ALUMINUM_SHARK_TF_VERSION}
