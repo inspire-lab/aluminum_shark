@@ -33,6 +33,13 @@ cmake --build build
 sudo cmake --install build
 ```
 
+### Building the SEAL backend
+
+From `seal_backend` run
+```
+make && make install
+```
+
 # Installing Aluminum Shark
 
 From the project root run:
