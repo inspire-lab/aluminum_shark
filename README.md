@@ -24,7 +24,7 @@ You can skip the GPU instructions and downloading the source.
 
 ### Building SEAL
 
-Go to `dependencies/tensorflow` and build SEAL by running:
+Go to `dependencies/SEAL` and build SEAL by running:
 
 ```
 mkdir bin 
