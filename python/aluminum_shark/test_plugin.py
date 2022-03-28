@@ -13,10 +13,13 @@ import numpy as np
 print('TF version', tf.__version__)
 
 
-@tf.function(jit_compile=True)
-def f(x):
-  # return tf.square(x) + [5, 6, 7, 8]
-  return tf.square(x) + [[5, 6], [7, 8]]
+def get_function():
+
+  def f(x):
+    # return tf.square(x) + [5, 6, 7, 8]
+    return tf.square(x) + [[5, 6], [7, 8]]
+
+  return f
 
 
 # input values
@@ -29,21 +32,17 @@ backend = shark.HEBackend(
 
 context = backend.createContextCKKS(8192, [60, 40, 40, 60], 40)
 context.create_keys()
-ctxt = context.encrypt(x_in.reshape(-1), name='x', dtype=float)
-shark.set_ciphertexts(ctxt)
-
-x = tf.convert_to_tensor(x_in)
+ctxt = context.encrypt(x_in, name='x', dtype=float)
 
 # run computation
-with tf.device("/device:XLA_HE:0"):
-  y_true = f(x).numpy()
-  print("on AS", y_true)
+enc_model = shark.EncryptedExecution(model_fn=get_function, context=context)
+result_ctxt = enc_model(ctxt)
 
-# retrieve result
-result_ctxt = shark.get_ciphertexts()
+y_true = get_function()(x_in).numpy()
+print("on AS", y_true)
 
 # decrypt
-decrypted = context.decrypt_double(result_ctxt)[:4]
+decrypted = context.decrypt_double(result_ctxt[0])[:4]
 print('decrypted values', decrypted)
 print('actual values', y_true)
 decrypted = np.array(decrypted)

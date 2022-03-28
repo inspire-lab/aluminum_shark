@@ -1,3 +1,4 @@
+from unittest import result
 import uuid
 import warnings
 import os
@@ -8,56 +9,17 @@ from inspect import currentframe, stack
 import numpy as np
 
 
-class EncryptedExecution():
-
-  def __init__(self, model_fn, *args, **kwargs) -> None:
-    with tf.device("/device:XLA_HE:0"):
-      self.__model = model_fn(*args, **kwargs)
-
-      @tf.function(jit_compile=True)
-      def f(*args):
-        return self.__model(*args)
-
-      self.__func = f
-
-  def __call__(self, *args) -> 'Ciphertext':
-
-    assert (all([isinstance(x, CipherText) for x in args]))
-    set_ciphertexts(args)
-
-    # generate dummy inputs
-    with tf.device("/device:XLA_HE:0"):
-      dummies = [tf.convert_to_tensor(np.ones(x.shape)) for x in args]
-      # print(dummies)
-      self.__func(*dummies)
-    return get_ciphertexts()
-
-
-# TODO: remove
-
-
-def encrypted_execution(
-    func,
-    model_fn,
-    model_fn_args=(),
-):
-
-  def inner(*args, **kwargs):
-    with tf.device("/device:XLA_HE:0"):
-      model = model_fn(*model_fn_args)
-
-    @tf.function(jit_compile=True)
-    def f(*args):
-      model(*args)
-
-  return inner
-
-
-def AS_LOG(*args, **kwargs):
+def AS_LOG(*args, hex_pointers=True, **kwargs):
   """
   Loggin function. Logs the filename and line it was called from. `args` and 
   `kwargs` are forwarded to `print`.
   """
+  args = list(args)
+  if hex_pointers:
+    for i in range(len(args)):
+      if isinstance(args[i], ctypes.c_void_p):
+        args[i] = str(args[i]) + '; ' + str(hex(args[i].value))
+
   cf = currentframe()
   print("Aluminum Shark:", f"{stack()[1][1]}:{cf.f_back.f_lineno}" + "]", *args,
         **kwargs)
@@ -189,15 +151,32 @@ number_of_slots_func.restype = ctypes.c_size_t
 destroy_context_func = tf_lib.aluminum_shark_DestroyContext
 destroy_context_func.argtypes = [ctypes.c_void_p]
 
+############################
+# computation functions    #
+############################
+
+# ctxt callback function
+# void* aluminum_shark_RegisterComputation(void* (*ctxt_callback)(int*),
+#                                          void (*result_callback)(void*, int))
+ctxt_callback_type = ctypes.CFUNCTYPE(ctypes.c_void_p,
+                                      ctypes.POINTER(ctypes.c_int))
+result_callback_type = ctypes.CFUNCTYPE(None, ctypes.POINTER(ctypes.c_void_p),
+                                        ctypes.c_int)
+register_computation_func = tf_lib.aluminum_shark_RegisterComputation
+register_computation_func.argtypes = [ctxt_callback_type, result_callback_type]
+register_computation_func.restype = ctypes.c_void_p
+
+############################
 # others
+############################
 
 destroy_ctxt_func = tf_lib.aluminum_shark_DestroyCiphertext
 destroy_ctxt_func.argtypes = [ctypes.c_void_p]
 
-# ctxt retrieval
-get_result_func = tf_lib.aluminum_shark_GetChipherTextResult
-destroy_ctxt_func.argtypes = [ctypes.POINTER(ctypes.c_void_p)]
-get_result_func.restype = ctypes.c_void_p
+# # ctxt retrieval
+# get_result_func = tf_lib.aluminum_shark_GetChipherTextResult
+# destroy_ctxt_func.argtypes = [ctypes.POINTER(ctypes.c_void_p)]
+# get_result_func.restype = ctypes.c_void_p
 
 
 class ObjectCleaner(object):
@@ -239,6 +218,77 @@ class ObjectCleaner(object):
       self.parent.remove(self)
     for o in self.objects:
       o.destroy()
+
+
+class EncryptedExecution(ObjectCleaner):
+
+  def __init__(self, context, model_fn, *args, **kwargs) -> None:
+    super().__init__(parent=context)
+    with tf.device("/device:XLA_HE:0"):
+      self.__model = model_fn(*args, **kwargs)
+      self.context = context
+
+      @tf.function(jit_compile=True)
+      def f(*args):
+        return self.__model(*args)
+
+      self.__func = f
+
+    self.__ctxt_inputs = None
+
+    def ctxt_callback(num: ctypes.POINTER(ctypes.c_int)) -> ctypes.c_void_p:
+      """
+      Callback that is called from C++ once the computation is started. The 
+      number of handles needs to be written into `num` 
+      pointer.
+
+      Returns a pointer to the input array
+      """
+      AS_LOG('ctxt callback called with:', num)
+      if self.__ctxt_inputs is None:
+        ValueError(
+            'ctxt callback has been called before ciphertexts have been set')
+      array_t = ctypes.c_void_p * len(self.__ctxt_inputs)
+      ret = array_t(*[c._handle for c in self.__ctxt_inputs])
+      ret = ctypes.cast(ret, ctypes.c_void_p)
+      num_ct = ctypes.c_int(len(self.__ctxt_inputs))
+      num[0] = len(self.__ctxt_inputs)
+      AS_LOG('c_void_p -> array', ret)
+      AS_LOG('returning callback:', ret, 'num', num, '*num', num.contents)
+      return ret.value
+
+    self.__ctxt_call_back = ctxt_callback_type(ctxt_callback)
+
+    self.result = None
+
+    def result_callback(values: ctypes.c_void_p, size: ctypes.c_int):
+      AS_LOG(self.__result_callback.argtypes)
+      AS_LOG(self.__result_callback.restype)
+      AS_LOG(type(values), type(size))
+      AS_LOG('result_callback invoked. values', values, 'size', size)
+      result_handles = values[:size]
+      AS_LOG('results', result_handles)
+      self.result = [
+          CipherText(ctypes.c_void_p(handle), self.context, shape=None)
+          for handle in result_handles
+      ]  # FIX shape
+
+    self.__result_callback = result_callback_type(result_callback)
+
+    self.__computation_handle = register_computation_func(
+        self.__ctxt_call_back, self.__result_callback)
+
+  def __call__(self, *args) -> 'Ciphertext':
+
+    assert (all([isinstance(x, CipherText) for x in args]))
+    self.__ctxt_inputs = args
+    # set_ciphertexts(args)
+
+    # generate dummy inputs
+    with tf.device("/device:XLA_HE:0"):
+      dummies = [tf.convert_to_tensor(np.ones(x.shape)) for x in args]
+      self.__func(*dummies)
+    return self.result
 
 
 # Wraps around a ciphertext
@@ -507,35 +557,34 @@ def debug_on(flag: bool) -> None:
   os.environ['ALUMINUM_SHARK_LOGGING'] = "1" if flag else "0"
 
 
-def set_ciphertexts(ctxts: Union[CipherText, List[CipherText]]) -> None:
-  """
-  Set ciphertexts to be used in the next computation.
-  """
-  # check if we deal with a list
-  try:
-    _ = (e for e in ctxts)
-  except TypeError:
-    ctxts = [ctxts]
-  ctxt_ptr_t = ctypes.c_void_p * len(ctxts)
-  arg = ctxt_ptr_t(*[c._handle for c in ctxts])
-  tf_lib.aluminum_shark_SetChipherTexts(arg, len(arg))
+# def set_ciphertexts(ctxts: Union[CipherText, List[CipherText]]) -> None:
+#   """
+#   Set ciphertexts to be used in the next computation.
+#   """
+#   # check if we deal with a list
+#   try:
+#     _ = (e for e in ctxts)
+#   except TypeError:
+#     ctxts = [ctxts]
+#   ctxt_ptr_t = ctypes.c_void_p * len(ctxts)
+#   arg = ctxt_ptr_t(*[c._handle for c in ctxts])
+#   tf_lib.aluminum_shark_SetChipherTexts(arg, len(arg))
 
-
-def get_ciphertexts() -> CipherText:
-  """
-  Retrieve the result of the last compuation. If no computation has been 
-  performed the behaviour of this funtion is undefined.
-  """
-  # print("aluminum_shark.get_ciphertexts")
-  context_ptr = ctypes.c_void_p()
-  print(context_ptr)
-  # print(context_ptr.contents)
-  print(context_ptr.value)
-  # print(hex(context_ptr.value))
-  ctxt_handle = get_result_func(ctypes.byref(context_ptr))
-  print(Context.context_map)
-  print(context_ptr)
-  print(hex(context_ptr.value))
-  context = Context.find_context(context_ptr.value)
-  return CipherText(handle=ctxt_handle, context=context,
-                    shape=None)  # FIXME: shape information
+# def get_ciphertexts() -> CipherText:
+#   """
+#   Retrieve the result of the last compuation. If no computation has been
+#   performed the behaviour of this funtion is undefined.
+#   """
+#   # print("aluminum_shark.get_ciphertexts")
+#   context_ptr = ctypes.c_void_p()
+#   print(context_ptr)
+#   # print(context_ptr.contents)
+#   print(context_ptr.value)
+#   # print(hex(context_ptr.value))
+#   ctxt_handle = get_result_func(ctypes.byref(context_ptr))
+#   print(Context.context_map)
+#   print(context_ptr)
+#   print(hex(context_ptr.value))
+#   context = Context.find_context(context_ptr.value)
+#   return CipherText(handle=ctxt_handle, context=context,
+#                     shape=None)  # FIXME: shape information

@@ -50,10 +50,9 @@ backend = shark.HEBackend(
 context = backend.createContextCKKS(8192, [60, 40, 40, 60], 40)
 context.create_keys()
 ctxt = context.encrypt(x_in, name='x', dtype=float)
-shark.set_ciphertexts(ctxt)
 
 # run computation
-enc_model = shark.EncryptedExecution(model_fn=create_model)
+enc_model = shark.EncryptedExecution(model_fn=create_model, context=context)
 result_ctxt = enc_model(ctxt)
 
 # decrypt
