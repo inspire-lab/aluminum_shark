@@ -1,7 +1,7 @@
 TF_PLUGIN_DIR = ../../dependencies/tensorflow/tensorflow/compiler/plugin/aluminum_shark
 # VPATH = $(TF_PLUGIN_DIR):$(TF_PLUGIN_DIR)/python:$(TF_PLUGIN_DIR)/he_backend
 # CC_FILES := ctxt.cc ptxt.cc base_txt.cc logging.cc python_handle.cc he_backend.cc
-CC_FILES := ctxt.cc ptxt.cc base_txt.cc logging.cc python/python_handle.cc he_backend/he_backend.cc
+CC_FILES := ctxt.cc ptxt.cc base_txt.cc layout.cc logging.cc python/python_handle.cc he_backend/he_backend.cc
 SRC_FILES := $(addprefix $(TF_PLUGIN_DIR)/,$(CC_FILES))
 # $(info $$SRC_FILES is [${SRC_FILES}])
 OBJ_DIR := obj
@@ -49,6 +49,11 @@ $(OBJ_DIR)/python_handle.o:
 $(OBJ_DIR)/logging.o:
 	@echo compiling $(TF_PLUGIN_DIR)/logging.cc
 	c++ $(CPPFLAGS)  $(INCLUDES) -c -o $@ $(TF_PLUGIN_DIR)/logging.cc
+
+$(OBJ_DIR)/layout.o:
+	@echo compiling $(TF_PLUGIN_DIR)/layout.cc
+	c++ $(CPPFLAGS)  $(INCLUDES) -c -o $@ $(TF_PLUGIN_DIR)/layout.cc
+
 
 $(OBJ_DIR)/he_backend.o:
 	@echo compiling $(TF_PLUGIN_DIR)he_backend/he_backend.cc
