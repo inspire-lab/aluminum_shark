@@ -41,6 +41,9 @@ HECtxt* SEALCtxt::deepCopy() {
 // arithmetic operations
 
 // ctxt and ctxt
+    
+//Addintion    
+    
 HECtxt* SEALCtxt::operator+(const HECtxt* other) {
   std::cout << "calling add on " << reinterpret_cast<void*>(this) << " and "
             << reinterpret_cast<const void*>(other) << std::endl;
@@ -78,7 +81,25 @@ HECtxt* SEALCtxt::addInPlace(const HECtxt* other) {
                                    other_ctxt->sealCiphertext());
   return this;
 }
+// subtraction    
+HECtxt* SEALCtxt::operator-(const HECtxt* other) {
+  const SEALCtxt* other_ctxt = dynamic_cast<const SEALCtxt*>(other);
+  SEALCtxt* result =
+      new SEALCtxt(_name + " * " + other_ctxt->name(), _content_type, _context);
+  _context._evaluator->sub(_internal_ctxt, other_ctxt->sealCiphertext(),
+                                result->sealCiphertext());
+  return result;
+}
+    
+HECtxt* SEALCtxt::subInPlace(const HECtxt* other) {
+  const SEALCtxt* other_ctxt = dynamic_cast<const SEALCtxt*>(other);
+  _context._evaluator->sub_inplace(_internal_ctxt,
+                                   other_ctxt->sealCiphertext());
+  return this;
+}    
 
+//multiplication    
+    
 HECtxt* SEALCtxt::operator*(const HECtxt* other) {
   const SEALCtxt* other_ctxt = dynamic_cast<const SEALCtxt*>(other);
   SEALCtxt* result =
@@ -164,6 +185,74 @@ HECtxt* SEALCtxt::addInPlace(double other) {
   delete ptxt;
   return this;
 }
+    
+// subtraction
+HECtxt* SEALCtxt::operator-(const HEPtxt* other) {
+  const SEALPtxt* ptxt = dynamic_cast<const SEALPtxt*>(other);
+  std::cout << "calling + on SEALCtxt with " << ptxt->to_string() << std::endl;
+  SEALCtxt* result =
+      new SEALCtxt(_name + " + plaintext", _content_type, _context);
+  std::cout << "Created result Ctxt " << result->to_string() << std::endl;
+  std::cout << _internal_ctxt.scale() << std::endl;
+  std::cout << ptxt->sealPlaintext().scale() << std::endl;
+  SEALPtxt rescaled = ptxt->scaleToMatch(*this);
+  std::cout << "rescaled ptxt scalte:" << rescaled.sealPlaintext().scale()
+            << std::endl;
+  try {
+    _context._evaluator->sub_plain(_internal_ctxt, rescaled.sealPlaintext(),
+                                   result->sealCiphertext());
+  } catch (const std::exception& e) {
+    std::cout << e.what() << std::endl;
+    throw e;
+  }
+  return result;
+}
+
+HECtxt* SEALCtxt::subInPlace(const HEPtxt* other) {
+  const SEALPtxt* ptxt = dynamic_cast<const SEALPtxt*>(other);
+  SEALPtxt rescaled = ptxt->rescale(_internal_ctxt.scale());
+  _context._evaluator->sub_plain_inplace(_internal_ctxt,
+                                         rescaled.sealPlaintext());
+  return this;
+}
+
+HECtxt* SEALCtxt::operator-(long other) {
+  SEALCtxt* result = new SEALCtxt(_name + " + " + std::to_string(other),
+                                  _content_type, _context);
+  std::vector<long> vec(_context.numberOfSlots(), other);
+  SEALPtxt* ptxt = (SEALPtxt*)_context.encode(vec);
+  _context._evaluator->sub_plain(_internal_ctxt, ptxt->sealPlaintext(),
+                                 result->sealCiphertext());
+  delete ptxt;
+  return result;
+}
+
+HECtxt* SEALCtxt::subInPlace(long other) {
+  std::vector<long> vec(_context.numberOfSlots(), other);
+  SEALPtxt* ptxt = (SEALPtxt*)_context.encode(vec);
+  _context._evaluator->sub_plain_inplace(_internal_ctxt, ptxt->sealPlaintext());
+  delete ptxt;
+  return this;
+}
+
+HECtxt* SEALCtxt::operator-(double other) {
+  SEALCtxt* result = new SEALCtxt(_name + " + " + std::to_string(other),
+                                  _content_type, _context);
+  std::vector<double> vec(_context.numberOfSlots(), other);
+  SEALPtxt* ptxt = (SEALPtxt*)_context.encode(vec);
+  _context._evaluator->sub_plain(_internal_ctxt, ptxt->sealPlaintext(),
+                                 result->sealCiphertext());
+  delete ptxt;
+  return result;
+}
+
+HECtxt* SEALCtxt::subInPlace(double other) {
+  std::vector<double> vec(_context.numberOfSlots(), other);
+  SEALPtxt* ptxt = (SEALPtxt*)_context.encode(vec);
+  _context._evaluator->sub_plain_inplace(_internal_ctxt, ptxt->sealPlaintext());
+  delete ptxt;
+  return this;
+}    
 
 // multiplication
 HECtxt* SEALCtxt::operator*(const HEPtxt* other) {

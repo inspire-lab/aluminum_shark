@@ -20,8 +20,15 @@ class SEALPtxt : public HEPtxt {
   virtual const HEContext* getContext() const override;
 
   // Ptxt and Ptxt
+  //Addition
   virtual HEPtxt* operator+(const HEPtxt* other) override;
   virtual HEPtxt* addInPlace(const HEPtxt* other) override;
+  
+  //Subtraction
+  virtual HEPtxt* operator-(const HEPtxt* other) override;
+  virtual HEPtxt* subInPlace(const HEPtxt* other) override;
+
+  //Multiplication
 
   virtual HEPtxt* operator*(const HEPtxt* other) override;
   virtual HEPtxt* multInPlace(const HEPtxt* other) override;
@@ -29,6 +36,7 @@ class SEALPtxt : public HEPtxt {
   //  plain and ctxt
   // no inplace operations since they need to return a ctxt
   virtual HECtxt* operator+(const HECtxt* other) override;
+  virtual HECtxt* operator-(const HECtxt* other) override;
   virtual HECtxt* operator*(const HECtxt* other) override;
 
   // integral types
@@ -37,6 +45,12 @@ class SEALPtxt : public HEPtxt {
   virtual HEPtxt* addInPlace(long other) override;
   virtual HEPtxt* operator+(double other) override;
   virtual HEPtxt* addInPlace(double other) override;
+
+  //Subtraction
+  virtual HEPtxt* operator-(long other) override;
+  virtual HEPtxt* subInPlace(long other) override;
+  virtual HEPtxt* operator-(double other) override;
+  virtual HEPtxt* subInPlace(double other) override;
 
   // multiplication
   virtual HEPtxt* operator*(long other) override;

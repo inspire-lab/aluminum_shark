@@ -32,3 +32,4 @@
 *.app
 test/py_handle_test
 test/seal_test
+test/substract_test

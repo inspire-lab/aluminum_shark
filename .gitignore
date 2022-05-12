@@ -184,3 +184,4 @@ dependencies/*
 !dependencies/.keepme
 messing_around/*
 logs/*
+.vscode/
