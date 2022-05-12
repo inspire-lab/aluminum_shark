@@ -60,6 +60,7 @@ template void SEALPtxt::scalarOperation<long>(
     std::vector<long>& destination);
 
 // Ptxt and Ptxt
+//Addition
 HEPtxt* SEALPtxt::operator+(const HEPtxt* other) {
   const SEALPtxt* other_ptxt = dynamic_cast<const SEALPtxt*>(other);
   if (_content_type == CONTENT_TYPE::DOUBLE) {
@@ -106,6 +107,54 @@ HEPtxt* SEALPtxt::addInPlace(const HEPtxt* other) {
   throw std::runtime_error("invlaid content type in plaintext");
 }
 
+//Subtraction
+HEPtxt* SEALPtxt::operator-(const HEPtxt* other) {
+  const SEALPtxt* other_ptxt = dynamic_cast<const SEALPtxt*>(other);
+  if (_content_type == CONTENT_TYPE::DOUBLE) {
+    std::vector<double> result;
+    std::function<double(double, double)> op = [](double one, double two) {
+      return one - two;
+    };
+    operation(*other_ptxt, op, result);
+    return _context.encode(result);
+  } else if (_content_type == CONTENT_TYPE::LONG) {
+    std::vector<long> result;
+    std::function<long(long, long)> op = [](long one, long two) {
+      return one - two;
+    };
+    operation(*other_ptxt, op, result);
+    return _context.encode(result);
+  }
+  throw std::runtime_error("invlaid content type in plaintext");
+}
+
+HEPtxt* SEALPtxt::subInPlace(const HEPtxt* other) {
+  const SEALPtxt* other_ptxt = dynamic_cast<const SEALPtxt*>(other);
+  if (_content_type == CONTENT_TYPE::DOUBLE) {
+    std::vector<double> result;
+    std::function<double(double, double)> op = [](double one, double two) {
+      return one - two;
+    };
+    operation(*other_ptxt, op, result);
+    SEALPtxt* temp_ptxt = (SEALPtxt*)_context.encode(result);
+    _internal_ptxt = std::move(temp_ptxt->_internal_ptxt);
+    delete temp_ptxt;
+    return this;
+  } else if (_content_type == CONTENT_TYPE::LONG) {
+    std::vector<long> result;
+    std::function<long(long, long)> op = [](long one, long two) {
+      return one - two;
+    };
+    operation(*other_ptxt, op, result);
+    SEALPtxt* temp_ptxt = (SEALPtxt*)_context.encode(result);
+    _internal_ptxt = std::move(temp_ptxt->_internal_ptxt);
+    delete temp_ptxt;
+    return this;
+  }
+  throw std::runtime_error("invlaid content type in plaintext");
+}
+
+//Multiplication
 HEPtxt* SEALPtxt::operator*(const HEPtxt* other) {
   const SEALPtxt* other_ptxt = dynamic_cast<const SEALPtxt*>(other);
   if (_content_type == CONTENT_TYPE::DOUBLE) {
@@ -154,6 +203,7 @@ HEPtxt* SEALPtxt::multInPlace(const HEPtxt* other) {
 
 //  plain and ctxt
 // no inplace operations since they need to return a ctxt
+//Addition
 HECtxt* SEALPtxt::operator+(const HECtxt* other) {
   const SEALCtxt* other_ctxt = dynamic_cast<const SEALCtxt*>(other);
   SEALCtxt* result = new SEALCtxt(other_ctxt->name() + " + plaintext",
@@ -163,6 +213,17 @@ HECtxt* SEALPtxt::operator+(const HECtxt* other) {
   return result;
 }
 
+//Subtraction
+HECtxt* SEALPtxt::operator-(const HECtxt* other) {
+  const SEALCtxt* other_ctxt = dynamic_cast<const SEALCtxt*>(other);
+  SEALCtxt* result = new SEALCtxt(other_ctxt->name() + " + plaintext",
+                                  other_ctxt->content_type(), _context);
+  _context._evaluator->sub_plain(other_ctxt->sealCiphertext(), sealPlaintext(),
+                                 result->sealCiphertext());
+  return result;
+}
+
+//Multiplication
 HECtxt* SEALPtxt::operator*(const HECtxt* other) {
   const SEALCtxt* other_ctxt = dynamic_cast<const SEALCtxt*>(other);
   SEALCtxt* result = new SEALCtxt(other_ctxt->name() + " + plaintext",
@@ -208,6 +269,49 @@ HEPtxt* SEALPtxt::addInPlace(double other) {
   std::vector<double> result;
   std::function<double(double, double)> op = [](double one, double two) {
     return one + two;
+  };
+  scalarOperation(other, op, result);
+  SEALPtxt* temp_ptxt = (SEALPtxt*)_context.encode(result);
+  _internal_ptxt = std::move(temp_ptxt->_internal_ptxt);
+  delete temp_ptxt;
+  return this;
+}
+
+//Subtraction
+HEPtxt* SEALPtxt::operator-(long other) {
+  std::vector<long> result;
+  std::function<long(long, long)> op = [](long one, long two) {
+    return one - two;
+  };
+  scalarOperation(other, op, result);
+  return _context.encode(result);
+}
+
+HEPtxt* SEALPtxt::subInPlace(long other) {
+  std::vector<long> result;
+  std::function<long(long, long)> op = [](long one, long two) {
+    return one - two;
+  };
+  scalarOperation(other, op, result);
+  SEALPtxt* temp_ptxt = (SEALPtxt*)_context.encode(result);
+  _internal_ptxt = std::move(temp_ptxt->_internal_ptxt);
+  delete temp_ptxt;
+  return this;
+}
+
+HEPtxt* SEALPtxt::operator-(double other) {
+  std::vector<double> result;
+  std::function<double(double, double)> op = [](double one, double two) {
+    return one - two;
+  };
+  scalarOperation(other, op, result);
+  return _context.encode(result);
+}
+
+HEPtxt* SEALPtxt::subInPlace(double other) {
+  std::vector<double> result;
+  std::function<double(double, double)> op = [](double one, double two) {
+    return one - two;
   };
   scalarOperation(other, op, result);
   SEALPtxt* temp_ptxt = (SEALPtxt*)_context.encode(result);
