@@ -141,10 +141,21 @@ HECtxt* SEALCtxt::operator+(const HEPtxt* other) {
 }
 
 HECtxt* SEALCtxt::addInPlace(const HEPtxt* other) {
+  std::cout << "adding plaintext in place" << std::endl;
   const SEALPtxt* ptxt = dynamic_cast<const SEALPtxt*>(other);
-  SEALPtxt rescaled = ptxt->rescale(_internal_ctxt.scale());
-  _context._evaluator->add_plain_inplace(_internal_ctxt,
-                                         rescaled.sealPlaintext());
+  std::cout << "rescaling plain text" << std::endl;
+  SEALPtxt rescaled = ptxt->scaleToMatch(*this);
+  std::cout << "rescaled" << std::endl;
+  std::cout << reinterpret_cast<void*>(_context._evaluator.get()) << std::endl;
+  try {
+    _context._evaluator->add_plain_inplace(_internal_ctxt,
+                                           rescaled.sealPlaintext());
+  } catch (const std::exception& e) {
+    std::cout << e.what() << '\n';
+    throw e;
+  }
+
+  std::cout << "added" << std::endl;
   return this;
 }
 

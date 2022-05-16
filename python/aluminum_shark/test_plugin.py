@@ -13,10 +13,13 @@ import numpy as np
 print('TF version', tf.__version__)
 
 
-@tf.function(jit_compile=True)
-def f(x):
-  # return tf.square(x) + [5, 6, 7, 8]
-  return tf.square(x) + [[5, 6], [7, 8]]
+def get_function():
+
+  def f(x):
+    # return tf.square(x) + [5, 6, 7, 8]
+    return tf.square(x) + [[5, 6], [7, 8]]
+
+  return f
 
 
 # input values
@@ -29,28 +32,36 @@ backend = shark.HEBackend(
 
 context = backend.createContextCKKS(8192, [60, 40, 40, 60], 40)
 context.create_keys()
-ctxt = context.encrypt(x_in.reshape(-1), name='x', dtype=float)
-shark.set_ciphertexts(ctxt)
+print('availabel layouts:', backend.layouts)
 
-x = tf.convert_to_tensor(x_in)
+for layout in backend.layouts:
+  print(
+      '########################################################################'
+  )
+  print(f'running with {layout} layout')
+  ctxt = context.encrypt(x_in, name='x', dtype=float, layout=layout)
 
-# run computation
-with tf.device("/device:XLA_HE:0"):
-  y_true = f(x).numpy()
-  print("on AS", y_true)
+  # run computation
+  enc_model = shark.EncryptedExecution(model_fn=get_function, context=context)
+  result_ctxt = enc_model(ctxt)
 
-# retrieve result
-result_ctxt = shark.get_ciphertexts()
+  y_true = get_function()(x_in).numpy()
+  print("true results:", y_true)
+  print('ctxt shape:', result_ctxt[0].shape)
 
-# decrypt
-decrypted = context.decrypt_double(result_ctxt)[:4]
-print('decrypted values', decrypted)
-print('actual values', y_true)
-decrypted = np.array(decrypted)
-if all((decrypted - y_true) < 0.001):
-  print("decryption with in rounding tolerance")
-else:
-  raise Exception('decryption does not match plaintext execution')
+  # decrypt
+  print('decrypting:')
+  decrypted = context.decrypt_double(result_ctxt[0])
+  print('decrypted values', decrypted)
+  print('actual values', y_true)
+  if np.all((decrypted - y_true) < 0.001):
+    print("decryption with in rounding tolerance")
+  else:
+    raise Exception('decryption does not match plaintext execution')
 
 # clean up
 backend.destroy()
+
+print(
+    '\n###############################\n\tSUCCESS\n###############################'
+)
