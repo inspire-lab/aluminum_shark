@@ -108,11 +108,19 @@ load_priv_key_func = tf_lib.aluminum_shark_LoadPrivateKey
 load_priv_key_func.argtypes = [ctypes.c_char_p, ctypes.c_void_p]
 
 # encryption and decryption
+
+# int
+# void* aluminum_shark_encryptLong(const long* values, int size, const char* name,
+#                                  const size_t* shape, int shape_size,
+#                                  const char* layout, void* context_ptr)
 encrypt_long_func = tf_lib.aluminum_shark_encryptLong
 encrypt_long_func.argtypes = [
     ctypes.POINTER(ctypes.c_long),  # plaintexts
     ctypes.c_int,  # number of plaintexts
     ctypes.c_char_p,  # name
+    ctypes.POINTER(ctypes.c_size_t),  # shape
+    ctypes.c_int,  # rank of the data
+    ctypes.c_char_p,  # layout 
     ctypes.c_void_p  # context handle
 ]
 encrypt_long_func.restype = ctypes.c_void_p
@@ -120,16 +128,23 @@ encrypt_long_func.restype = ctypes.c_void_p
 decrypt_long_func = tf_lib.aluminum_shark_decryptLong
 decrypt_long_func.argtypes = [
     ctypes.POINTER(ctypes.c_long),  # pointer to decrypted plain texts
-    ctypes.POINTER(ctypes.c_int),  # number of decrypted plain texts
     ctypes.c_void_p,  # ctxt handle
     ctypes.c_void_p  # context handle
 ]
 
+# float
+# void* aluminum_shark_encryptDouble(const double* values, int size,
+#                                    const char* name, const size_t* shape,
+#                                    int shape_size, const char* layout,
+#                                    void* context_ptr)
 encrypt_double_func = tf_lib.aluminum_shark_encryptDouble
 encrypt_double_func.argtypes = [
     ctypes.POINTER(ctypes.c_double),  # plaintexts
     ctypes.c_int,  # number of plaintexts
     ctypes.c_char_p,  # name
+    ctypes.POINTER(ctypes.c_size_t),  # shape
+    ctypes.c_int,  # rank of the data
+    ctypes.c_char_p,  # layout 
     ctypes.c_void_p  # context handle
 ]
 encrypt_double_func.restype = ctypes.c_void_p
@@ -137,7 +152,6 @@ encrypt_double_func.restype = ctypes.c_void_p
 decrypt_double_func = tf_lib.aluminum_shark_decryptDouble
 decrypt_double_func.argtypes = [
     ctypes.POINTER(ctypes.c_double),  # plaintexts
-    ctypes.POINTER(ctypes.c_int),  # number of plaintexts
     ctypes.c_void_p,  # ctxt handle
     ctypes.c_void_p  # context handle
 ]
@@ -157,26 +171,46 @@ destroy_context_func.argtypes = [ctypes.c_void_p]
 
 # ctxt callback function
 # void* aluminum_shark_RegisterComputation(void* (*ctxt_callback)(int*),
-#                                          void (*result_callback)(void*, int))
+#                                          void (*result_callback)(void*, int),
+#                                          const char* forced_layout);
 ctxt_callback_type = ctypes.CFUNCTYPE(ctypes.c_void_p,
                                       ctypes.POINTER(ctypes.c_int))
 result_callback_type = ctypes.CFUNCTYPE(None, ctypes.POINTER(ctypes.c_void_p),
                                         ctypes.c_int)
 register_computation_func = tf_lib.aluminum_shark_RegisterComputation
-register_computation_func.argtypes = [ctxt_callback_type, result_callback_type]
+register_computation_func.argtypes = [
+    ctxt_callback_type, result_callback_type, ctypes.c_char_p
+]
 register_computation_func.restype = ctypes.c_void_p
 
 ############################
-# others
+# layout functions         #
+############################
+
+# const char** aluminum_shark_GetAvailabeLayouts(size_t* size)
+get_avalailabe_layouts_func = tf_lib.aluminum_shark_GetAvailabeLayouts
+get_avalailabe_layouts_func.argtypes = [ctypes.POINTER(ctypes.c_size_t)]
+get_avalailabe_layouts_func.restype = ctypes.POINTER(ctypes.c_char_p)
+
+############################
+# ciphertext functions     #
 ############################
 
 destroy_ctxt_func = tf_lib.aluminum_shark_DestroyCiphertext
 destroy_ctxt_func.argtypes = [ctypes.c_void_p]
 
-# # ctxt retrieval
-# get_result_func = tf_lib.aluminum_shark_GetChipherTextResult
-# destroy_ctxt_func.argtypes = [ctypes.POINTER(ctypes.c_void_p)]
-# get_result_func.restype = ctypes.c_void_p
+get_ctxt_shape_len_func = tf_lib.aluminum_shark_GetCtxtShapeLen
+get_ctxt_shape_len_func.argtypes = [ctypes.c_void_p]
+get_ctxt_shape_len_func.restype = ctypes.c_size_t
+
+get_ctxt_shape_func = tf_lib.aluminum_shark_GetCtxtShape
+get_ctxt_shape_func.argtypes = [
+    ctypes.c_void_p, ctypes.POINTER(ctypes.c_size_t)
+]
+
+############################
+# others
+############################
 
 
 class ObjectCleaner(object):
@@ -222,7 +256,12 @@ class ObjectCleaner(object):
 
 class EncryptedExecution(ObjectCleaner):
 
-  def __init__(self, context, model_fn, *args, **kwargs) -> None:
+  def __init__(self,
+               context,
+               model_fn,
+               forced_layout: str = None,
+               *args,
+               **kwargs) -> None:
     super().__init__(parent=context)
     with tf.device("/device:XLA_HE:0"):
       self.__model = model_fn(*args, **kwargs)
@@ -274,9 +313,16 @@ class EncryptedExecution(ObjectCleaner):
       ]  # FIX shape
 
     self.__result_callback = result_callback_type(result_callback)
-
+    if forced_layout is not None:
+      AS_LOG('creating computation with forecd laytou:', forced_layout)
+      forced_layout = forced_layout.encode('utf-8')
+      AS_LOG(forced_layout)
+    else:
+      AS_LOG('creating computation without forecd laytou')
     self.__computation_handle = register_computation_func(
-        self.__ctxt_call_back, self.__result_callback)
+        self.__ctxt_call_back, self.__result_callback, forced_layout)
+
+    self.forced_layout = forced_layout
 
   def __call__(self, *args) -> 'Ciphertext':
 
@@ -302,7 +348,6 @@ class CipherText(ObjectCleaner):
     super().__init__(parent=context)
     self.__handle = handle
     self.__context = context
-    self.__shape = shape
 
   @property
   def _handle(self):
@@ -317,7 +362,18 @@ class CipherText(ObjectCleaner):
 
   @property
   def shape(self):
-    return self.__shape
+    return self.__get_shape_internal()
+
+  def __get_shape_internal(self):
+    # find out the lenght of the shape
+    lenght = get_ctxt_shape_len_func(self.__handle)
+    AS_LOG('called get_ctxt_shape_len_func', lenght)
+    # reserve space
+    shape_array = (ctypes.c_size_t * lenght)(*[0] * lenght)
+    AS_LOG('calling get_ctxt_shape_func with', shape_array)
+    get_ctxt_shape_func(self.__handle, shape_array)
+    AS_LOG('called get_ctxt_shape_func with. got shape', shape_array[:])
+    return shape_array[:]
 
   def destroy(self) -> None:
     """
@@ -364,7 +420,8 @@ class Context(ObjectCleaner):
               ptxt: List[Union[int, float]],
               name: Union[None, str] = None,
               dtype=None,
-              shape: Union[None, Iterable[int]] = None) -> CipherText:
+              shape: Union[None, Iterable[int]] = None,
+              layout: str = 'simple') -> CipherText:
     """
     Takes `list` of numbers as `ptxt` and encrypts it. It tries to infer the
     encoding from the passed plaintexts if `dtype` is `None`. If type inference 
@@ -407,7 +464,15 @@ class Context(ObjectCleaner):
 
     # convert name
     name_arg = ctypes.c_char_p(str.encode(name))
-    ctxt_handle = __enc_func(ptxt_ptr, len(ptxt), name_arg, self.__handle)
+
+    # create the layout
+    shape_ptr = (ctypes.c_size_t * len(shape))(*shape)
+    shape_size = len(shape)
+    # convert layout to byte array
+    layout_c = layout.encode('utf-8')
+
+    ctxt_handle = __enc_func(ptxt_ptr, len(ptxt), name_arg, shape_ptr,
+                             shape_size, layout_c, self.__handle)
     return CipherText(handle=ctxt_handle, context=self, shape=shape)
 
   def decrypt_long(self, ctxt: CipherText) -> List[int]:
@@ -423,19 +488,23 @@ class Context(ObjectCleaner):
     return self.__decrypt_internal(ctxt, decrypt_double_func, float)
 
   def __decrypt_internal(self, ctxt: CipherText, decrypt_func,
-                         dtype) -> Union[List[float], List[int]]:
+                         dtype) -> np.array:
+    # get the shape to compute the size of the reutrn array
+    shape = ctxt.shape
+    size = 1
+    for x in shape:
+      size = size * x
     if dtype == int:
-      ret = (ctypes.c_long * self.n_slots)(*list(range(self.n_slots)))
+      ret = (ctypes.c_long * size)(*list(range(size)))
     elif dtype == float:
-      ret = (ctypes.c_double * self.n_slots)(*list(range(self.n_slots)))
+      ret = (ctypes.c_double * size)(*list(range(size)))
     else:
       raise ValueError("Data type needs to be float or int")
-    ret_ptr = ctypes.pointer(ret)
-    ret_size = ctypes.c_int(-1)
-    ret_size_ptr = ctypes.pointer(ret_size)
+    # ret_ptr = ctypes.pointer(ret)
     AS_LOG("Calling decryption function,", decrypt_func.argtypes)
-    decrypt_func(ret, ret_size_ptr, ctxt._handle, self.__handle)
-    return list(ret[:ret_size.value])
+    decrypt_func(ret, ctxt._handle, self.__handle)
+    ret_value = np.asarray(ret[:]).reshape(shape)
+    return ret_value
 
   def create_keys(self) -> None:
     """
@@ -503,6 +572,7 @@ class HEBackend(ObjectCleaner):
     path_arg = ctypes.c_char_p(str.encode(path))
     self.__handle = load_backend_func(path_arg)
     AS_LOG("Created backend", self)
+    self.__layouts = None
 
   def destroy(self) -> None:
     super().destroy()
@@ -549,42 +619,18 @@ class HEBackend(ObjectCleaner):
   def handle(self):
     return self.__handle
 
+  @property
+  def layouts(self) -> List[str]:
+    if self.__layouts is not None:
+      return self.__layouts
+    size = ctypes.c_size_t(0)
+    layouts = get_avalailabe_layouts_func(ctypes.byref(size))
+    self.__layouts = [l.decode('utf-8') for l in layouts[:2]]
+    return self.__layouts
+
   def __repr__(self) -> str:
     return super().__repr__() + " handle: " + hex(self.__handle)
 
 
 def debug_on(flag: bool) -> None:
   os.environ['ALUMINUM_SHARK_LOGGING'] = "1" if flag else "0"
-
-
-# def set_ciphertexts(ctxts: Union[CipherText, List[CipherText]]) -> None:
-#   """
-#   Set ciphertexts to be used in the next computation.
-#   """
-#   # check if we deal with a list
-#   try:
-#     _ = (e for e in ctxts)
-#   except TypeError:
-#     ctxts = [ctxts]
-#   ctxt_ptr_t = ctypes.c_void_p * len(ctxts)
-#   arg = ctxt_ptr_t(*[c._handle for c in ctxts])
-#   tf_lib.aluminum_shark_SetChipherTexts(arg, len(arg))
-
-# def get_ciphertexts() -> CipherText:
-#   """
-#   Retrieve the result of the last compuation. If no computation has been
-#   performed the behaviour of this funtion is undefined.
-#   """
-#   # print("aluminum_shark.get_ciphertexts")
-#   context_ptr = ctypes.c_void_p()
-#   print(context_ptr)
-#   # print(context_ptr.contents)
-#   print(context_ptr.value)
-#   # print(hex(context_ptr.value))
-#   ctxt_handle = get_result_func(ctypes.byref(context_ptr))
-#   print(Context.context_map)
-#   print(context_ptr)
-#   print(hex(context_ptr.value))
-#   context = Context.find_context(context_ptr.value)
-#   return CipherText(handle=ctxt_handle, context=context,
-#                     shape=None)  # FIXME: shape information

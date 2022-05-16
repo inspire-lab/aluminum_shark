@@ -32,24 +32,36 @@ backend = shark.HEBackend(
 
 context = backend.createContextCKKS(8192, [60, 40, 40, 60], 40)
 context.create_keys()
-ctxt = context.encrypt(x_in, name='x', dtype=float)
+print('availabel layouts:', backend.layouts)
 
-# run computation
-enc_model = shark.EncryptedExecution(model_fn=get_function, context=context)
-result_ctxt = enc_model(ctxt)
+for layout in backend.layouts:
+  print(
+      '########################################################################'
+  )
+  print(f'running with {layout} layout')
+  ctxt = context.encrypt(x_in, name='x', dtype=float, layout=layout)
 
-y_true = get_function()(x_in).numpy()
-print("on AS", y_true)
+  # run computation
+  enc_model = shark.EncryptedExecution(model_fn=get_function, context=context)
+  result_ctxt = enc_model(ctxt)
 
-# decrypt
-decrypted = context.decrypt_double(result_ctxt[0])[:4]
-print('decrypted values', decrypted)
-print('actual values', y_true)
-decrypted = np.array(decrypted)
-if all((decrypted - y_true) < 0.001):
-  print("decryption with in rounding tolerance")
-else:
-  raise Exception('decryption does not match plaintext execution')
+  y_true = get_function()(x_in).numpy()
+  print("true results:", y_true)
+  print('ctxt shape:', result_ctxt[0].shape)
+
+  # decrypt
+  print('decrypting:')
+  decrypted = context.decrypt_double(result_ctxt[0])
+  print('decrypted values', decrypted)
+  print('actual values', y_true)
+  if np.all((decrypted - y_true) < 0.001):
+    print("decryption with in rounding tolerance")
+  else:
+    raise Exception('decryption does not match plaintext execution')
 
 # clean up
 backend.destroy()
+
+print(
+    '\n###############################\n\tSUCCESS\n###############################'
+)
