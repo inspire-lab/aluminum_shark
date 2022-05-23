@@ -63,6 +63,13 @@ class SEALContext : public HEContext {
   // decryption functions
   virtual std::vector<long> decryptLong(HECtxt* ctxt) const override;
   virtual std::vector<double> decryptDouble(HECtxt* ctxt) const override;
+  // these just forward to decode
+  virtual std::vector<long> decryptLong(HEPtxt* ptxt) const override {
+    return decodeLong(ptxt);
+  }
+  virtual std::vector<double> decryptDouble(HEPtxt* ptxt) const override {
+    return decodeDoubl(ptxt);
+  }
 
   // Plaintext related
 
