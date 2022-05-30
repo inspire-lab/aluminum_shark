@@ -1,7 +1,8 @@
 TF_PLUGIN_DIR = ../../dependencies/tensorflow/tensorflow/compiler/plugin/aluminum_shark
 # VPATH = $(TF_PLUGIN_DIR):$(TF_PLUGIN_DIR)/python:$(TF_PLUGIN_DIR)/he_backend
-# CC_FILES := ctxt.cc ptxt.cc base_txt.cc logging.cc python_handle.cc he_backend.cc
-CC_FILES := ctxt.cc ptxt.cc base_txt.cc layout.cc logging.cc python/python_handle.cc he_backend/he_backend.cc
+# most of these are disabled due to dependency issues
+# CC_FILES := ctxt.cc ptxt.cc base_txt.cc layout.cc logging.cc python/python_handle.cc he_backend/he_backend.cc
+CC_FILES := he_backend/he_backend.cc logging.cc
 SRC_FILES := $(addprefix $(TF_PLUGIN_DIR)/,$(CC_FILES))
 # $(info $$SRC_FILES is [${SRC_FILES}])
 OBJ_DIR := obj
@@ -12,9 +13,9 @@ LDFLAGS := -shared -std=c++17 -O0 -g3
 # CPPFLAGS := ...
 CPPFLAGS := -O0 -g3 -Wall --std=c++17 -fPIC -Wno-unused-local-typedefs
 INCLUDES := -I../../dependencies/tensorflow/tensorflow/compiler/plugin/aluminum_shark -I../../dependencies/tensorflow/ -I../../dependencies/SEAL/bin/include/SEAL-3.7/ 
-LIBS := ../../dependencies/SEAL/bin/lib/libseal-3.7.a
+LIBS := ../../dependencies/SEAL/bin/lib/libseal-3.7.a 
 
-all: py_handle_test seal_test substract_test
+all: seal_test substract_test # py_handle_test is broken
 
 seal_test:
 	@echo compiling $@
@@ -22,11 +23,11 @@ seal_test:
 
 py_handle_test: $(OBJ_FILES) $(OBJ_DIR)/py_handle_test.o
 	@echo linking $@
-	c++ --std=c++14 -O0 -g3 -o $@ $^ -ldl
+	c++ --std=c++17 -O0 -g3 -o $@ $^ -ldl
 
 substract_test: $(OBJ_FILES) $(OBJ_DIR)/substract_test.o
 	@echo linking $@
-	c++ --std=c++14 -O0 -g3 -o $@ $^ -ldl
+	c++ --std=c++17 -O0 -g3 -o $@ $^ -ldl
 
 
 $(OBJ_DIR)/py_handle_test.o:

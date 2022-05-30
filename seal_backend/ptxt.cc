@@ -24,6 +24,9 @@ const std::string& SEALPtxt::to_string() const { return placeholder; }
 const HEContext* SEALPtxt::getContext() const { return &_context; }
 
 SEALPtxt SEALPtxt::rescale(double scale) const {
+  BACKEND_LOG << "resacling plaintext from "
+              << std::log2(_internal_ptxt.scale()) << " to " << scale
+              << std::endl;
   if (_content_type == CONTENT_TYPE::LONG) {
     std::vector<long> content = _context.decode<long>(*this);
     return SEALPtxt(static_cast<SEALPtxt*>(_context.encode(content, scale))
@@ -60,7 +63,7 @@ template void SEALPtxt::scalarOperation<long>(
     std::vector<long>& destination);
 
 // Ptxt and Ptxt
-//Addition
+// Addition
 HEPtxt* SEALPtxt::operator+(const HEPtxt* other) {
   const SEALPtxt* other_ptxt = dynamic_cast<const SEALPtxt*>(other);
   if (_content_type == CONTENT_TYPE::DOUBLE) {
@@ -107,7 +110,7 @@ HEPtxt* SEALPtxt::addInPlace(const HEPtxt* other) {
   throw std::runtime_error("invlaid content type in plaintext");
 }
 
-//Subtraction
+// Subtraction
 HEPtxt* SEALPtxt::operator-(const HEPtxt* other) {
   const SEALPtxt* other_ptxt = dynamic_cast<const SEALPtxt*>(other);
   if (_content_type == CONTENT_TYPE::DOUBLE) {
@@ -154,7 +157,7 @@ HEPtxt* SEALPtxt::subInPlace(const HEPtxt* other) {
   throw std::runtime_error("invlaid content type in plaintext");
 }
 
-//Multiplication
+// Multiplication
 HEPtxt* SEALPtxt::operator*(const HEPtxt* other) {
   const SEALPtxt* other_ptxt = dynamic_cast<const SEALPtxt*>(other);
   if (_content_type == CONTENT_TYPE::DOUBLE) {
@@ -203,7 +206,7 @@ HEPtxt* SEALPtxt::multInPlace(const HEPtxt* other) {
 
 //  plain and ctxt
 // no inplace operations since they need to return a ctxt
-//Addition
+// Addition
 HECtxt* SEALPtxt::operator+(const HECtxt* other) {
   const SEALCtxt* other_ctxt = dynamic_cast<const SEALCtxt*>(other);
   SEALCtxt* result = new SEALCtxt(other_ctxt->name() + " + plaintext",
@@ -213,7 +216,7 @@ HECtxt* SEALPtxt::operator+(const HECtxt* other) {
   return result;
 }
 
-//Subtraction
+// Subtraction
 HECtxt* SEALPtxt::operator-(const HECtxt* other) {
   const SEALCtxt* other_ctxt = dynamic_cast<const SEALCtxt*>(other);
   SEALCtxt* result = new SEALCtxt(other_ctxt->name() + " + plaintext",
@@ -223,7 +226,7 @@ HECtxt* SEALPtxt::operator-(const HECtxt* other) {
   return result;
 }
 
-//Multiplication
+// Multiplication
 HECtxt* SEALPtxt::operator*(const HECtxt* other) {
   const SEALCtxt* other_ctxt = dynamic_cast<const SEALCtxt*>(other);
   SEALCtxt* result = new SEALCtxt(other_ctxt->name() + " + plaintext",
@@ -277,7 +280,7 @@ HEPtxt* SEALPtxt::addInPlace(double other) {
   return this;
 }
 
-//Subtraction
+// Subtraction
 HEPtxt* SEALPtxt::operator-(long other) {
   std::vector<long> result;
   std::function<long(long, long)> op = [](long one, long two) {
@@ -367,5 +370,8 @@ HEPtxt* SEALPtxt::deepCopy() {
   SEALPtxt* result = new SEALPtxt(*this);
   return result;
 }
+
+bool SEALPtxt::isAllZero() const { return _allZero; }
+bool SEALPtxt::isAllOne() const { return _allOne; }
 
 }  // namespace aluminum_shark
