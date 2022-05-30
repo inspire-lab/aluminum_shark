@@ -20,15 +20,15 @@ class SEALPtxt : public HEPtxt {
   virtual const HEContext* getContext() const override;
 
   // Ptxt and Ptxt
-  //Addition
+  // Addition
   virtual HEPtxt* operator+(const HEPtxt* other) override;
   virtual HEPtxt* addInPlace(const HEPtxt* other) override;
-  
-  //Subtraction
+
+  // Subtraction
   virtual HEPtxt* operator-(const HEPtxt* other) override;
   virtual HEPtxt* subInPlace(const HEPtxt* other) override;
 
-  //Multiplication
+  // Multiplication
 
   virtual HEPtxt* operator*(const HEPtxt* other) override;
   virtual HEPtxt* multInPlace(const HEPtxt* other) override;
@@ -46,7 +46,7 @@ class SEALPtxt : public HEPtxt {
   virtual HEPtxt* operator+(double other) override;
   virtual HEPtxt* addInPlace(double other) override;
 
-  //Subtraction
+  // Subtraction
   virtual HEPtxt* operator-(long other) override;
   virtual HEPtxt* subInPlace(long other) override;
   virtual HEPtxt* operator-(double other) override;
@@ -75,13 +75,19 @@ class SEALPtxt : public HEPtxt {
 
   SEALPtxt scaleToMatch(const SEALCtxt& ctxt) const;
 
+  bool isAllZero() const;
+  bool isAllOne() const;
+
  protected:
   seal::Plaintext _internal_ptxt;
 
  private:
+  friend SEALContext;
   // SEAL specific API
   CONTENT_TYPE _content_type;
   const SEALContext& _context;
+  bool _allZero = false;
+  bool _allOne = false;
 
   SEALPtxt(const SEALPtxt& other) = default;
 

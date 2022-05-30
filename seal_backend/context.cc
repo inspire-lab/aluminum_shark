@@ -4,6 +4,7 @@
 #include <memory>
 #include <string>
 
+#include "backend_logging.h"
 #include "ctxt.h"
 #include "ptxt.h"
 #include "seal/seal.h"
@@ -121,29 +122,29 @@ void SEALContext::createPublicKey() {
 // SEAL requires the private key to be created first. the key generator
 // automaticlaly generates the pubkey as well.
 void SEALContext::createPrivateKey() {
-  std::cout << "generating secret key" << std::endl;
+  BACKEND_LOG << "generating secret key" << std::endl;
   // _sec_key = _keygen.secret_key();
-  std::cout << "Creating decryptor" << std::endl;
+  BACKEND_LOG << "Creating decryptor" << std::endl;
   _decryptor = std::make_unique<seal::Decryptor>(_internal_context, _sec_key);
   _sec_key_ready = true;
 }
 
 // save public key to file
 void SEALContext::savePublicKey(const std::string& file) {
-  std::cout << "saving keys not implemented yet" << std::endl;
+  BACKEND_LOG << "saving keys not implemented yet" << std::endl;
 }
 // save private key ot file
 void SEALContext::savePrivateKey(const std::string& file) {
-  std::cout << "saving keys not implemented yet" << std::endl;
+  BACKEND_LOG << "saving keys not implemented yet" << std::endl;
 }
 
 // load public key from file
 void SEALContext::loadPublicKey(const std::string& file) {
-  std::cout << "loading keys not implemented yet" << std::endl;
+  BACKEND_LOG << "loading keys not implemented yet" << std::endl;
 }
 // load private key from file
 void SEALContext::loadPrivateKey(const std::string& file) {
-  std::cout << "loading keys not implemented yet" << std::endl;
+  BACKEND_LOG << "loading keys not implemented yet" << std::endl;
 }
 
 // Ciphertext related
@@ -161,8 +162,8 @@ HECtxt* SEALContext::encrypt(std::vector<double>& plain,
                              const std::string name) const {
   HEPtxt* ptxt = encode(plain);  // we own this memory now. need to delete it
 #ifdef DEBUG_BUILD
-  std::cout << "scale " << ((SEALPtxt*)ptxt)->sealPlaintext().scale()
-            << std::endl;
+  BACKEND_LOG << "scale " << ((SEALPtxt*)ptxt)->sealPlaintext().scale()
+              << std::endl;
   std::vector<double> debug_vec = decodeDouble(ptxt);
   print_vector(debug_vec, 10);
 #endif
@@ -178,6 +179,12 @@ HECtxt* SEALContext::encrypt(std::vector<double>& plain,
 
 HECtxt* SEALContext::encrypt(HEPtxt* ptxt, const std::string name) const {
   SEALPtxt* seal_ptxt = dynamic_cast<SEALPtxt*>(ptxt);
+  SEALCtxt* ctxt_ptr = new SEALCtxt(name, seal_ptxt->content_type(), *this);
+  _encryptor->encrypt(seal_ptxt->sealPlaintext(), ctxt_ptr->sealCiphertext());
+  return ctxt_ptr;
+}
+HECtxt* SEALContext::encrypt(const HEPtxt* ptxt, const std::string name) const {
+  const SEALPtxt* seal_ptxt = dynamic_cast<const SEALPtxt*>(ptxt);
   SEALCtxt* ctxt_ptr = new SEALCtxt(name, seal_ptxt->content_type(), *this);
   _encryptor->encrypt(seal_ptxt->sealPlaintext(), ctxt_ptr->sealCiphertext());
   return ctxt_ptr;
@@ -215,6 +222,10 @@ HEPtxt* SEALContext::encode(const std::vector<long>& plain) const {
     } else {
       _batchencoder->encode(plain, ptxt_ptr->sealPlaintext());
     }
+    // check if all values are one or zero
+    auto zero_one = all_zero_or_one(plain);
+    ptxt_ptr->_allZero = zero_one.first;
+    ptxt_ptr->_allOne = zero_one.second;
   }
   return ptxt_ptr;
 }
@@ -225,6 +236,7 @@ HEPtxt* SEALContext::encode(const std::vector<double>& plain) const {
 
 HEPtxt* SEALContext::encode(const std::vector<long>& plain,
                             double scale) const {
+  BACKEND_LOG << "encoding plaintext with scale " << scale << std::endl;
   SEALPtxt* ptxt_ptr =
       new SEALPtxt(seal::Plaintext(), CONTENT_TYPE::LONG, *this);
   if (is_ckks()) {
@@ -233,20 +245,33 @@ HEPtxt* SEALContext::encode(const std::vector<long>& plain,
   } else {
     // create plaintext
     _batchencoder->encode(plain, ptxt_ptr->sealPlaintext());
+    // check if all values are one or zero
+    auto zero_one = all_zero_or_one(plain);
+    ptxt_ptr->_allZero = zero_one.first;
+    ptxt_ptr->_allOne = zero_one.second;
   }
   return ptxt_ptr;
 }
 
 HEPtxt* SEALContext::encode(const std::vector<double>& plain,
                             double scale) const {
+  BACKEND_LOG << "encoding plaintext with scale " << scale << std::endl;
+#ifdef DEBUG_BUILD
+  stream_vector(plain);
+#endif
   SEALPtxt* ptxt_ptr =
       new SEALPtxt(seal::Plaintext(), CONTENT_TYPE::DOUBLE, *this);
+
   if (plain.size() == 1) {
     _ckksencoder->encode(plain[0], std::pow(2, scale),
                          ptxt_ptr->sealPlaintext());
   } else {
     _ckksencoder->encode(plain, std::pow(2, scale), ptxt_ptr->sealPlaintext());
   }
+  // check if all values are one or zero
+  auto zero_one = all_zero_or_one(plain);
+  ptxt_ptr->_allZero = zero_one.first;
+  ptxt_ptr->_allOne = zero_one.second;
   return ptxt_ptr;
 }
 
