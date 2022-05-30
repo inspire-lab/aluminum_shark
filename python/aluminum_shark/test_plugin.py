@@ -42,8 +42,10 @@ for layout in backend.layouts:
   ctxt = context.encrypt(x_in, name='x', dtype=float, layout=layout)
 
   # run computation
-  enc_model = shark.EncryptedExecution(model_fn=get_function, context=context)
-  result_ctxt = enc_model(ctxt)
+  enc_model = shark.EncryptedExecution(model_fn=get_function,
+                                       context=context,
+                                       forced_layout=layout)
+  result_ctxt = enc_model(ctxt, debug_inputs=[x_in])
 
   y_true = get_function()(x_in).numpy()
   print("true results:", y_true)
@@ -54,7 +56,7 @@ for layout in backend.layouts:
   decrypted = context.decrypt_double(result_ctxt[0])
   print('decrypted values', decrypted)
   print('actual values', y_true)
-  if np.all((decrypted - y_true) < 0.001):
+  if np.all(abs(decrypted - y_true) < 0.001):
     print("decryption with in rounding tolerance")
   else:
     raise Exception('decryption does not match plaintext execution')
