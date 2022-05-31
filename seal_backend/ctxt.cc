@@ -322,4 +322,16 @@ HECtxt* SEALCtxt::multInPlace(double other) {
   return this;
 }
 
+//Rotation
+HECtxt* SEALCtxt::rotInPlace(int steps) {
+  _context._evaluator->rotate_vector_inplace(
+            _internal_ctxt, steps, _context._gal_keys);
+  return this;            
+}
+
+HECtxt* SEALCtxt::rotate(int steps) {
+    HECtxt* copy = this->deepCopy();
+    return copy->rotInPlace(steps);
+}
+
 }  // namespace aluminum_shark
