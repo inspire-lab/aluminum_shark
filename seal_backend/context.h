@@ -5,9 +5,22 @@
 #include <string>
 
 #include "backend.h"
+#include "backend_logging.h"
 #include "he_backend/he_backend.h"
 
 namespace aluminum_shark {
+
+// taken from: SEAL/native/src/seal/util/common.h
+template <typename T>
+constexpr double epsilon = std::numeric_limits<T>::epsilon();
+
+template <typename T,
+          typename = std::enable_if_t<std::is_floating_point<T>::value>>
+inline bool are_close(T value1, T value2) noexcept {
+  double scale_factor =
+      std::max<T>({std::fabs(value1), std::fabs(value2), T{1.0}});
+  return std::fabs(value1 - value2) < epsilon<T> * scale_factor;
+}
 
 enum CONTENT_TYPE { invalid = -1, LONG, DOUBLE };
 
@@ -24,8 +37,8 @@ class SEALContext : public HEContext {
  public:
   // Plugin API
   virtual ~SEALContext() {
-    std::cout << "Destroying Context " << reinterpret_cast<void*>(this)
-              << std::endl;
+    BACKEND_LOG << "Destroying Context " << reinterpret_cast<void*>(this)
+                << std::endl;
   };
 
   virtual const std::string& to_string() const override;
@@ -59,10 +72,18 @@ class SEALContext : public HEContext {
                           const std::string name = "") const override;
   virtual HECtxt* encrypt(HEPtxt* ptxt,
                           const std::string name = "") const override;
+  HECtxt* encrypt(const HEPtxt* ptxt, const std::string name = "") const;
 
   // decryption functions
   virtual std::vector<long> decryptLong(HECtxt* ctxt) const override;
   virtual std::vector<double> decryptDouble(HECtxt* ctxt) const override;
+  // these just forward to decode
+  virtual std::vector<long> decryptLong(HEPtxt* ptxt) const override {
+    return decodeLong(ptxt);
+  }
+  virtual std::vector<double> decryptDouble(HEPtxt* ptxt) const override {
+    return decodeDouble(ptxt);
+  }
 
   // Plaintext related
 
@@ -115,6 +136,33 @@ class SEALContext : public HEContext {
 
   bool is_ckks() const;
   bool is_bfv() const;
+
+  // checks if all values in a vector are 0 or 1. return std::pair<all_zero,
+  // all_one>
+  template <class T>
+  std::pair<bool, bool> all_zero_or_one(const std::vector<T>& in) const {
+    bool all_one = true;
+    bool all_zero = true;
+    if (in.size() == 1) {
+      all_zero = in[0] == 0;
+      all_one = in[0] == 1;
+
+    } else {
+      for (auto i : in) {
+        if (i != 0) {
+          all_zero = false;
+          break;
+        }
+      }
+      for (auto i : in) {
+        if (i != 1) {
+          all_one = true;
+          break;
+        }
+      }
+    }
+    return std::pair<bool, bool>(all_zero, all_one);
+  };
 };
 
 }  // namespace aluminum_shark

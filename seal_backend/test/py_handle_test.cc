@@ -11,6 +11,9 @@
 #include "tensorflow/compiler/plugin/aluminum_shark/ptxt.h"
 #include "tensorflow/compiler/plugin/aluminum_shark/python/python_handle.h"
 
+// TODO RP: this file broke with indroduction of the dependencies in layout to
+// some tensorflow function. need to figure out how to fix this
+
 using namespace aluminum_shark;
 
 // we need this cause lambdas can't caputre and be converted to a function

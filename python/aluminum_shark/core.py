@@ -212,6 +212,16 @@ get_ctxt_shape_func.argtypes = [
 # others
 ############################
 
+# turns logging on or off
+# void aluminum_shark_EnableLogging(bool on);
+enable_logging_func = tf_lib.aluminum_shark_EnableLogging
+enable_logging_func.argtypes = [ctypes.c_bool]
+
+# sets the log level
+# void aluminum_shark_SetLogLevel(int level);
+set_log_level_func = tf_lib.aluminum_shark_SetLogLevel
+set_log_level_func.argtypes = [ctypes.c_int]
+
 
 class ObjectCleaner(object):
   """
@@ -324,7 +334,17 @@ class EncryptedExecution(ObjectCleaner):
 
     self.forced_layout = forced_layout
 
-  def __call__(self, *args) -> 'Ciphertext':
+  def __call__(self,
+               *args,
+               debug_inputs: List[np.array] = None) -> 'Ciphertext':
+    """
+    Perform the encrypted execution.
+
+    args:         encrypted inputs to the exectution
+    debug_inputs: list of plain data numpy arrays that can be passed for plain 
+                  debuging computation. The shape of the numpy arrays must match
+                  the encyrtpted inputs in args.
+    """
 
     assert (all([isinstance(x, CipherText) for x in args]))
     self.__ctxt_inputs = args
@@ -332,7 +352,19 @@ class EncryptedExecution(ObjectCleaner):
 
     # generate dummy inputs
     with tf.device("/device:XLA_HE:0"):
-      dummies = [tf.convert_to_tensor(np.ones(x.shape)) for x in args]
+      if debug_inputs is not None:
+        # saftey checks
+        if len(args) != len(debug_inputs):
+          raise RuntimeError(
+              f'number of debug inputs ({len(debug_inputs)})' +
+              f'needs to match number of ciphertext inputs({len(args)})')
+        for i, (dbg, ctxt) in enumerate(zip(debug_inputs, args)):
+          if dbg.shape != tuple(ctxt.shape):
+            raise RuntimeError(f'argument and  debug input {i} shape mismatch' +
+                               f'{tuple(ctxt.shape)} and {dbg.shape}')
+        dummies = [tf.convert_to_tensor(x) for x in debug_inputs]
+      else:
+        dummies = [tf.convert_to_tensor(np.ones(x.shape)) for x in args]
       self.__func(*dummies)
     return self.result
 
@@ -633,4 +665,12 @@ class HEBackend(ObjectCleaner):
 
 
 def debug_on(flag: bool) -> None:
-  os.environ['ALUMINUM_SHARK_LOGGING'] = "1" if flag else "0"
+  enable_logging_func(flag)
+
+
+def enable_logging(flag: bool) -> None:
+  enable_logging_func(flag)
+
+
+def set_log_level(level: int) -> None:
+  set_log_level_func(level)

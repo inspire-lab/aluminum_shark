@@ -24,7 +24,7 @@ class SEALCtxt : public HECtxt {
   // ctxt and ctxt
   virtual HECtxt* operator+(const HECtxt* other) override;
   virtual HECtxt* addInPlace(const HECtxt* other) override;
-    
+
   virtual HECtxt* operator-(const HECtxt* other) override;
   virtual HECtxt* subInPlace(const HECtxt* other) override;
 
@@ -40,14 +40,14 @@ class SEALCtxt : public HECtxt {
   virtual HECtxt* addInPlace(long other) override;
   virtual HECtxt* operator+(double other) override;
   virtual HECtxt* addInPlace(double other) override;
-    
+
   // subtraction
   virtual HECtxt* operator-(const HEPtxt* other) override;
   virtual HECtxt* subInPlace(const HEPtxt* other) override;
   virtual HECtxt* operator-(long other) override;
   virtual HECtxt* subInPlace(long other) override;
   virtual HECtxt* operator-(double other) override;
-  virtual HECtxt* subInPlace(double other) override;    
+  virtual HECtxt* subInPlace(double other) override;
 
   // multiplication
   virtual HECtxt* operator*(const HEPtxt* other) override;
@@ -75,6 +75,7 @@ class SEALCtxt : public HECtxt {
 
  private:
   // SEAL specific API
+  friend SEALContext;
   std::string _name;
   CONTENT_TYPE _content_type;
   const SEALContext& _context;
