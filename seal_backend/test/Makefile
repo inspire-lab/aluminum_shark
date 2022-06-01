@@ -15,7 +15,7 @@ CPPFLAGS := -O0 -g3 -Wall --std=c++17 -fPIC -Wno-unused-local-typedefs
 INCLUDES := -I../../dependencies/tensorflow/tensorflow/compiler/plugin/aluminum_shark -I../../dependencies/tensorflow/ -I../../dependencies/SEAL/bin/include/SEAL-3.7/ 
 LIBS := ../../dependencies/SEAL/bin/lib/libseal-3.7.a 
 
-all: seal_test substract_test # py_handle_test is broken
+all: seal_test substract_test rotate_test # py_handle_test is broken
 
 seal_test:
 	@echo compiling $@
@@ -25,7 +25,7 @@ py_handle_test: $(OBJ_FILES) $(OBJ_DIR)/py_handle_test.o
 	@echo linking $@
 	c++ --std=c++17 -O0 -g3 -o $@ $^ -ldl
 
-substract_test: $(OBJ_FILES) $(OBJ_DIR)/substract_test.o
+rotate_test: $(OBJ_FILES) $(OBJ_DIR)/rotate_test.o
 	@echo linking $@
 	c++ --std=c++17 -O0 -g3 -o $@ $^ -ldl
 
@@ -34,9 +34,9 @@ $(OBJ_DIR)/py_handle_test.o:
 	@echo compiling py_handle_test.cc
 	c++ $(CPPFLAGS) $(INCLUDES) -c -o $@ py_handle_test.cc
 
-$(OBJ_DIR)/substract_test.o:
-	@echo compiling py_handle_test.cc
-	c++ $(CPPFLAGS) $(INCLUDES) -c -o $@ substract_test.cc
+$(OBJ_DIR)/rotate_test.o:
+	@echo compiling rotate_test.cc
+	c++ $(CPPFLAGS) $(INCLUDES) -c -o $@ rotate_test.cc
 
 $(OBJ_DIR)/ctxt.o:
 	@echo compiling $(TF_PLUGIN_DIR)/ctxt.cc
@@ -71,4 +71,4 @@ $(OBJ_DIR)/he_backend.o:
 .PHONY : clean
 
 make clean:
-	rm -f $(OBJ_DIR)/*.o  aluminum_shark_seal_test.so py_handle_test  seal_test substract_test
+	rm -f $(OBJ_DIR)/*.o  aluminum_shark_seal_test.so py_handle_test  seal_test rotate_test
