@@ -77,7 +77,7 @@ int main(int argc, char const* argv[]) {
         for (size_t i = 0; i < no_ctxt; ++i) {
           global_results.push_back(((void**)result_ctxts)[i]);
         }
-      });
+      }, "simple");
 
   // check that we can retrieve the ciphertexts from the computation handle
   aluminum_shark_Computation* computation =

@@ -57,6 +57,10 @@ class SEALCtxt : public HECtxt {
   virtual HECtxt* operator*(double other) override;
   virtual HECtxt* multInPlace(double other) override;
 
+  //Rotation
+  virtual HECtxt* rotate(int steps) override;
+  virtual HECtxt* rotInPlace(int steps) override;
+
   // SEAL specific API
   SEALCtxt(const std::string& name, CONTENT_TYPE content_type,
            const SEALContext& context);
