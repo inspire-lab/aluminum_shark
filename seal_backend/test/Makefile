@@ -38,6 +38,10 @@ $(OBJ_DIR)/rotate_test.o:
 	@echo compiling rotate_test.cc
 	c++ $(CPPFLAGS) $(INCLUDES) -c -o $@ rotate_test.cc
 
+$(OBJ_DIR)/substract_test.o:
+	@echo compiling py_handle_test.cc
+	c++ $(CPPFLAGS) $(INCLUDES) -c -o $@ substract_test.cc
+
 $(OBJ_DIR)/ctxt.o:
 	@echo compiling $(TF_PLUGIN_DIR)/ctxt.cc
 	c++ $(CPPFLAGS)  $(INCLUDES) -c -o $@ $(TF_PLUGIN_DIR)/ctxt.cc
