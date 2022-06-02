@@ -26,11 +26,14 @@ bool log();
 }  // namespace aluminum_shark
 
 // streaming interface
-#define BACKEND_LOG                                    \
+// set FILE and LINE manually
+#define BACKEND_LOG_FILE_LINE(FILE, LINE)              \
   (::aluminum_shark::seal_backend::log()               \
        ? std::cout                                     \
        : ::aluminum_shark::seal_backend::nullstream()) \
-      << "Aluminum Shark: " << __FILE__ << ":" << __LINE__ << "] "
+      << "SEAL Backend: [" << FILE << ":" << LINE << "] "
+
+#define BACKEND_LOG BACKEND_LOG_FILE_LINE(__FILE__, __LINE__)
 
 // append to stream
 #define BACKEND_LOG_A                    \
