@@ -13,16 +13,15 @@ import numpy as np
 
 print('TF version', tf.__version__)
 
-x_in = np.arange(50).reshape(10, 5) / 50
-print(x_in)
+n_items = 10 * 5 * 5 * 1
+x_in = np.arange(n_items).reshape(10, 5, 5, 1) / n_items
+# print(x_in)
 
 
 def create_model():
   model = tf.keras.Sequential()
   model.add(
-      tf.keras.layers.Dense(3, activation=tf.square,
-                            input_shape=x_in.shape[1:]))
-
+      tf.keras.layers.Conv2D(3, kernel_size=(3, 3), input_shape=x_in.shape[1:]))
   w, b = model.layers[0].get_weights()
   # print(w.shape)
   model.layers[0].set_weights([
@@ -49,12 +48,12 @@ result_ctxt = enc_model(ctxt, debug_inputs=[x_in])
 
 # decrypt
 decrypted = context.decrypt_double(result_ctxt[0])
-print('decrypted values \n', decrypted)
-print('actual values', y_true)
 decrypted = np.array(decrypted)
 if np.all(abs(decrypted - y_true) < 0.001):
   print("decryption with in rounding tolerance")
 else:
+  print('decrypted values', decrypted)
+  print('actual values', y_true)
   raise Exception('decryption does not match plaintext execution')
 
 # clean up
