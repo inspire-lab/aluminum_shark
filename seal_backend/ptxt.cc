@@ -40,12 +40,31 @@ SEALPtxt SEALPtxt::rescale(double scale) const {
   }
 }
 
+SEALPtxt SEALPtxt::rescale(double scale, seal::parms_id_type params_id) const {
+  BACKEND_LOG << "resacling plaintext from " << _internal_ptxt.scale() << " to "
+              << scale << std::endl;
+  if (_content_type == CONTENT_TYPE::LONG) {
+    std::vector<long> content = _context.decode<long>(*this);
+    return SEALPtxt(
+        static_cast<SEALPtxt*>(_context.encode(content, params_id, scale))
+            ->sealPlaintext(),
+        _content_type, _context);
+  } else {
+    std::vector<double> content = _context.decode<double>(*this);
+    return SEALPtxt(
+        static_cast<SEALPtxt*>(_context.encode(content, params_id, scale))
+            ->sealPlaintext(),
+        _content_type, _context);
+  }
+}
+
 SEALPtxt SEALPtxt::scaleToMatch(const SEALPtxt& ptxt) const {
-  return rescale(std::log2(ptxt.sealPlaintext().scale()));
+  return rescale(ptxt.sealPlaintext().scale(), ptxt.sealPlaintext().parms_id());
 }
 
 SEALPtxt SEALPtxt::scaleToMatch(const SEALCtxt& ctxt) const {
-  return rescale(std::log2(ctxt.sealCiphertext().scale()));
+  return rescale(ctxt.sealCiphertext().scale(),
+                 ctxt.sealCiphertext().parms_id());
 }
 
 // template instantiation

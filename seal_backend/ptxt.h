@@ -70,6 +70,7 @@ class SEALPtxt : public HEPtxt {
 
   // rescale the plaintext to 2^scale
   SEALPtxt rescale(double scale) const;
+  SEALPtxt rescale(double scale, seal::parms_id_type params_id) const;
 
   SEALPtxt scaleToMatch(const SEALPtxt& ptxt) const;
 

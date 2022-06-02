@@ -14,7 +14,7 @@ aluminum_shark_seal.so: $(OBJ_FILES)
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cc
 	@echo compiling $^
-	c++ $(CPPFLAGS) $(CXXFLAGS) $(INCLUDES) -c -o $@ $<
+	c++ $(CPPFLAGS) $(CXXFLAGS) $(INCLUDES) $(CFLAGS) -c -o $@ $<
 
 
 .PHONY : clean

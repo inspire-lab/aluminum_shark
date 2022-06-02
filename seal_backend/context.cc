@@ -53,7 +53,7 @@ SEALContext::SEALContext(seal::SEALContext context, const SEALBackend& backend,
                          double scale)
     : _internal_context(context),
       _backend(backend),
-      _scale(scale),
+      _scale(std::pow(2, scale)),
       _keygen(context),
       _sec_key(_keygen.secret_key()) {
   _is_ckks = _internal_context.first_context_data()->parms().scheme() ==
@@ -236,12 +236,22 @@ HEPtxt* SEALContext::encode(const std::vector<double>& plain) const {
 
 HEPtxt* SEALContext::encode(const std::vector<long>& plain,
                             double scale) const {
+  return encode(plain, _internal_context.first_parms_id(), scale);
+}
+
+HEPtxt* SEALContext::encode(const std::vector<double>& plain,
+                            double scale) const {
+  return encode(plain, _internal_context.first_parms_id(), scale);
+}
+
+HEPtxt* SEALContext::encode(const std::vector<long>& plain,
+                            seal::parms_id_type params_id, double scale) const {
   BACKEND_LOG << "encoding plaintext with scale " << scale << std::endl;
   SEALPtxt* ptxt_ptr =
       new SEALPtxt(seal::Plaintext(), CONTENT_TYPE::LONG, *this);
   if (is_ckks()) {
     std::vector<double> double_vec(plain.begin(), plain.end());
-    return encode(double_vec, scale);
+    return encode(double_vec, params_id, scale);
   } else {
     // create plaintext
     _batchencoder->encode(plain, ptxt_ptr->sealPlaintext());
@@ -252,9 +262,8 @@ HEPtxt* SEALContext::encode(const std::vector<long>& plain,
   }
   return ptxt_ptr;
 }
-
 HEPtxt* SEALContext::encode(const std::vector<double>& plain,
-                            double scale) const {
+                            seal::parms_id_type params_id, double scale) const {
   BACKEND_LOG << "encoding plaintext with scale " << scale << std::endl;
 #ifdef DEBUG_BUILD
   stream_vector(plain);
@@ -263,10 +272,9 @@ HEPtxt* SEALContext::encode(const std::vector<double>& plain,
       new SEALPtxt(seal::Plaintext(), CONTENT_TYPE::DOUBLE, *this);
 
   if (plain.size() == 1) {
-    _ckksencoder->encode(plain[0], std::pow(2, scale),
-                         ptxt_ptr->sealPlaintext());
+    _ckksencoder->encode(plain[0], params_id, scale, ptxt_ptr->sealPlaintext());
   } else {
-    _ckksencoder->encode(plain, std::pow(2, scale), ptxt_ptr->sealPlaintext());
+    _ckksencoder->encode(plain, params_id, scale, ptxt_ptr->sealPlaintext());
   }
   // check if all values are one or zero
   auto zero_one = all_zero_or_one(plain);

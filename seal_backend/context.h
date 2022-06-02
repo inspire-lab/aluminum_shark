@@ -93,6 +93,10 @@ class SEALContext : public HEContext {
   // encoding
   HEPtxt* encode(const std::vector<long>& plain, double scale) const;
   HEPtxt* encode(const std::vector<double>& plain, double scale) const;
+  HEPtxt* encode(const std::vector<long>& plain, seal::parms_id_type params_id,
+                 double scale) const;
+  HEPtxt* encode(const std::vector<double>& plain,
+                 seal::parms_id_type params_id, double scale) const;
 
   // decoding
   virtual std::vector<long> decodeLong(HEPtxt*) const override;
