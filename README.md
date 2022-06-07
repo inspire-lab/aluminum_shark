@@ -30,7 +30,7 @@ Go to `dependencies/SEAL` and build SEAL by running:
 mkdir bin 
 cmake -S . -B build -DCMAKE_INSTALL_PREFIX=./bin
 cmake --build build
-sudo cmake --install build
+cmake --install build
 ```
 
 ### Building the SEAL backend
