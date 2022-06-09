@@ -392,16 +392,21 @@ HECtxt* SEALCtxt::operator*(const HEPtxt* other) {
     _context._evaluator->rescale_to_next_inplace(res->sealCiphertext());
     return res;
   }
+
+  // TODO: shortcut evalution for special case 1
   SEALPtxt rescaled = ptxt->scaleToMatch(*this);
   // shortcut evalution for special case 0
+  BACKEND_LOG << "creating result ctxt" << std::endl;
   SEALCtxt* result =
       new SEALCtxt(_name + " * plaintext", _content_type, _context);
-  // TODO: shortcut evalution for special case 1
   try {
+    BACKEND_LOG << "running multiplication" << std::endl;
     _context._evaluator->multiply_plain(
         _internal_ctxt, rescaled.sealPlaintext(), result->sealCiphertext());
+    BACKEND_LOG << "running relin" << std::endl;
     _context._evaluator->relinearize_inplace(result->sealCiphertext(),
                                              _context.relinKeys());
+    BACKEND_LOG << "running rescale" << std::endl;
     _context._evaluator->rescale_to_next_inplace(result->sealCiphertext());
   } catch (const std::exception& e) {
     logComputationError(_internal_ctxt, rescaled.sealPlaintext(),
@@ -409,6 +414,7 @@ HECtxt* SEALCtxt::operator*(const HEPtxt* other) {
     throw;
   }
 
+  BACKEND_LOG << "mutlplication done" << std::endl;
   return result;
 }
 
@@ -485,16 +491,16 @@ HECtxt* SEALCtxt::multInPlace(double other) {
   return this;
 }
 
-//Rotation
+// Rotation
 HECtxt* SEALCtxt::rotInPlace(int steps) {
-  _context._evaluator->rotate_vector_inplace(
-            _internal_ctxt, steps, _context._gal_keys);
-  return this;            
+  _context._evaluator->rotate_vector_inplace(_internal_ctxt, steps,
+                                             _context._gal_keys);
+  return this;
 }
 
 HECtxt* SEALCtxt::rotate(int steps) {
-    HECtxt* copy = this->deepCopy();
-    return copy->rotInPlace(steps);
+  HECtxt* copy = this->deepCopy();
+  return copy->rotInPlace(steps);
 }
 
 }  // namespace aluminum_shark

@@ -160,6 +160,7 @@ HECtxt* SEALContext::encrypt(std::vector<long>& plain,
 
 HECtxt* SEALContext::encrypt(std::vector<double>& plain,
                              const std::string name) const {
+  BACKEND_LOG << "encoding plaintext " << name << std::endl;
   HEPtxt* ptxt = encode(plain);  // we own this memory now. need to delete it
 #ifdef DEBUG_BUILD
   BACKEND_LOG << "scale " << ((SEALPtxt*)ptxt)->sealPlaintext().scale()
@@ -167,6 +168,7 @@ HECtxt* SEALContext::encrypt(std::vector<double>& plain,
   std::vector<double> debug_vec = decodeDouble(ptxt);
   print_vector(debug_vec, 10);
 #endif
+  BACKEND_LOG << "encyrpting plaintext " << name << std::endl;
   HECtxt* ctxt_ptr = encrypt(ptxt, name);
 
 #ifdef DEBUG_BUILD
@@ -200,8 +202,12 @@ std::vector<long> SEALContext::decryptLong(HECtxt* ctxt) const {
 
 std::vector<double> SEALContext::decryptDouble(HECtxt* ctxt) const {
   SEALCtxt* seal_ctxt = dynamic_cast<SEALCtxt*>(ctxt);
+  BACKEND_LOG << "decrypting " << std::endl;
   SEALPtxt result(seal::Plaintext(), CONTENT_TYPE::DOUBLE, *this);
+  BACKEND_LOG << "created result plaintext. calling decyrption function "
+              << std::endl;
   _decryptor->decrypt(seal_ctxt->sealCiphertext(), result.sealPlaintext());
+  BACKEND_LOG << "decryption successful. decoding next" << std::endl;
   return decodeDouble(&result);
 }
 
@@ -281,6 +287,10 @@ HEPtxt* SEALContext::encode(const std::vector<double>& plain,
   ptxt_ptr->_allZero = zero_one.first;
   ptxt_ptr->_allOne = zero_one.second;
   return ptxt_ptr;
+}
+
+HE_SCHEME SEALContext::scheme() const {
+  return is_ckks() ? HE_SCHEME::CKKS : HE_SCHEME::BFV;
 }
 
 // decoding

@@ -102,6 +102,8 @@ class SEALContext : public HEContext {
   virtual std::vector<long> decodeLong(HEPtxt*) const override;
   virtual std::vector<double> decodeDouble(HEPtxt*) const override;
 
+  virtual HE_SCHEME scheme() const override;
+
   // SEAL specific API
   SEALContext(seal::SEALContext context, const SEALBackend& backend,
               double scale = -1);
