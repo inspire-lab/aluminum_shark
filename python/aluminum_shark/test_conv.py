@@ -1,7 +1,7 @@
 import os
 # os.environ['TF_CPP_MIN_LOG_LEVEL'] = '0'
 # os.environ['TF_CPP_MAX_VLOG_LEVEL'] = '1'
-# os.environ['ALUMINUM_SHARK_LOGGING'] = '1'
+os.environ['ALUMINUM_SHARK_LOGGING'] = '1'
 # os.environ['ALUMINUM_SHARK_BACKEND_LOGGING'] = '1'
 os.environ['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices'
 # os.environ['TF_XLA_FLAGS'] += ' --tf_mlir_enable_mlir_bridge'
@@ -13,8 +13,8 @@ import numpy as np
 
 print('TF version', tf.__version__)
 
-n_items = 10 * 5 * 5 * 1
-x_in = np.arange(n_items).reshape(10, 5, 5, 1) / n_items
+n_items = 10 * 5 * 5 * 3
+x_in = np.arange(n_items).reshape(10, 5, 5, 3) / n_items
 # print(x_in)
 
 
@@ -35,15 +35,17 @@ y_true = create_model()(x_in)
 # print(y_true)
 
 # set it all up
-backend = shark.HEBackend(
-    '/home/robert/workspace/aluminum_shark/seal_backend/aluminum_shark_seal.so')
+backend = shark.HEBackend()
 
 context = backend.createContextCKKS(8192, [60, 40, 40, 60], 40)
 context.create_keys()
-ctxt = context.encrypt(x_in, name='x', dtype=float)
+ctxt = context.encrypt(x_in, name='x', dtype=float, layout='batch')
 
 # run computation
-enc_model = shark.EncryptedExecution(model_fn=create_model, context=context)
+enc_model = shark.EncryptedExecution(model_fn=create_model,
+                                     context=context,
+                                     forced_layout='batch')
+
 result_ctxt = enc_model(ctxt, debug_inputs=[x_in])
 
 # decrypt

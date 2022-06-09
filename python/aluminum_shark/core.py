@@ -1,12 +1,11 @@
-from unittest import result
 import uuid
-import warnings
 import os
 import ctypes
 import tensorflow as tf
 from typing import Union, List, Iterable
 from inspect import currentframe, stack
 import numpy as np
+from aluminum_shark import config
 
 
 def AS_LOG(*args, hex_pointers=True, **kwargs):
@@ -31,7 +30,7 @@ AS_LOG('default backend: ', __DEFAULT_BACKEND__)
 
 # get the tensorflow shared library path
 tf_dir = tf.__file__[:-12]  # strip away file name '__init__.py'
-tf_lib_path = os.path.join(tf_dir, 'python', '_pywrap_tensorflow_internal.so')
+tf_lib_path = config.PY_HANDLE_SHARED_LIB
 if not os.path.exists(tf_lib_path):
   raise Exception('Unable to find TensorFlow shared library ' + tf_lib_path)
 
@@ -495,7 +494,7 @@ class Context(ObjectCleaner):
     print(ptxt_ptr)
 
     # convert name
-    name_arg = ctypes.c_char_p(str.encode(name))
+    name_arg = name.encode('utf-8')
 
     # create the layout
     shape_ptr = (ctypes.c_size_t * len(shape))(*shape)
