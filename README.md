@@ -28,7 +28,7 @@ Go to `dependencies/SEAL` and build SEAL by running:
 
 ```
 mkdir bin 
-cmake -S . -B build -DCMAKE_INSTALL_PREFIX=./bin
+cmake -S . -B build -DCMAKE_INSTALL_PREFIX=./bin -DSEAL_THROW_ON_TRANSPARENT_CIPHERTEXT=OFF
 cmake --build build
 sudo cmake --install build
 ```

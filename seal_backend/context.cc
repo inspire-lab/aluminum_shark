@@ -289,6 +289,18 @@ HEPtxt* SEALContext::encode(const std::vector<double>& plain,
   return ptxt_ptr;
 }
 
+HEPtxt* SEALContext::createPtxt(const std::vector<long>& vec) const {
+  SEALPtxt* ptxt = new SEALPtxt(seal::Plaintext(), CONTENT_TYPE::LONG, *this);
+  ptxt->long_values = vec;
+  return ptxt;
+}
+
+HEPtxt* SEALContext::createPtxt(const std::vector<double>& vec) const {
+  SEALPtxt* ptxt = new SEALPtxt(seal::Plaintext(), CONTENT_TYPE::LONG, *this);
+  ptxt->double_values = vec;
+  return ptxt;
+}
+
 HE_SCHEME SEALContext::scheme() const {
   return is_ckks() ? HE_SCHEME::CKKS : HE_SCHEME::BFV;
 }

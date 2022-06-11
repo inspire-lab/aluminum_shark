@@ -81,6 +81,8 @@ class SEALPtxt : public HEPtxt {
 
  protected:
   seal::Plaintext _internal_ptxt;
+  std::vector<long> long_values;
+  std::vector<double> double_values;
 
  private:
   friend SEALContext;

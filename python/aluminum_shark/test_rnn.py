@@ -1,7 +1,7 @@
 import os
 # os.environ['TF_CPP_MIN_LOG_LEVEL'] = '0'
 # os.environ['TF_CPP_MAX_VLOG_LEVEL'] = '1'
-# os.environ['ALUMINUM_SHARK_LOGGING'] = '1'
+os.environ['ALUMINUM_SHARK_LOGGING'] = '1'
 # os.environ['ALUMINUM_SHARK_BACKEND_LOGGING'] = '1'
 os.environ['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices'
 # os.environ['TF_XLA_FLAGS'] += ' --tf_mlir_enable_mlir_bridge'
@@ -13,23 +13,25 @@ import numpy as np
 
 print('TF version', tf.__version__)
 
-x_in = np.arange(50).reshape(10, 5) / 50
+n = 5 * 5 * 3
+x_in = np.arange(n).reshape(5, 5, 3) / n
 print(x_in)
 
 
 def create_model():
   model = tf.keras.Sequential()
   model.add(
-      tf.keras.layers.Dense(3, activation=tf.square,
-                            input_shape=x_in.shape[1:]))
+      tf.keras.layers.SimpleRNN(3,
+                                activation=tf.square,
+                                input_shape=x_in.shape[1:]))
   # model.add(tf.keras.layers.BatchNormalization())
 
-  w, b = model.layers[0].get_weights()
-  # # print(w.shape)
-  model.layers[0].set_weights([
-      np.arange(w.size).reshape(w.shape) / w.size,
-      np.arange(b.size).reshape(b.shape) / b.size
-  ])
+  # w, b = model.layers[0].get_weights()
+  # # # print(w.shape)
+  # model.layers[0].set_weights([
+  #     np.arange(w.size).reshape(w.shape) / w.size,
+  #     np.arange(b.size).reshape(b.shape) / b.size
+  # ])
   return model
 
 

@@ -44,15 +44,13 @@ SEALPtxt SEALPtxt::rescale(double scale, seal::parms_id_type params_id) const {
   BACKEND_LOG << "resacling plaintext from " << _internal_ptxt.scale() << " to "
               << scale << std::endl;
   if (_content_type == CONTENT_TYPE::LONG) {
-    std::vector<long> content = _context.decode<long>(*this);
     return SEALPtxt(
-        static_cast<SEALPtxt*>(_context.encode(content, params_id, scale))
+        static_cast<SEALPtxt*>(_context.encode(long_values, params_id, scale))
             ->sealPlaintext(),
         _content_type, _context);
   } else {
-    std::vector<double> content = _context.decode<double>(*this);
     return SEALPtxt(
-        static_cast<SEALPtxt*>(_context.encode(content, params_id, scale))
+        static_cast<SEALPtxt*>(_context.encode(double_values, params_id, scale))
             ->sealPlaintext(),
         _content_type, _context);
   }
