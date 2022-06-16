@@ -27,8 +27,7 @@ def get_function():
 x_in = np.array([[1, 2], [3, 4]])
 
 # set it all up
-backend = shark.HEBackend(
-    '/home/robert/workspace/aluminum_shark/seal_backend/aluminum_shark_seal.so')
+backend = shark.HEBackend()
 
 context = backend.createContextCKKS(8192, [60, 40, 40, 60], 40)
 context.create_keys()

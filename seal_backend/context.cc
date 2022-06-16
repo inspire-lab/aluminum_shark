@@ -302,6 +302,8 @@ HEPtxt* SEALContext::createPtxt(const std::vector<double>& vec) const {
 }
 
 HE_SCHEME SEALContext::scheme() const {
+  BACKEND_LOG << "getting scheme type: " << 
+    (is_ckks() ? HE_SCHEME::CKKS : HE_SCHEME::BFV) <<std::endl;
   return is_ckks() ? HE_SCHEME::CKKS : HE_SCHEME::BFV;
 }
 
