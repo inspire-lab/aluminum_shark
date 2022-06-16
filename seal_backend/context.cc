@@ -296,14 +296,14 @@ HEPtxt* SEALContext::createPtxt(const std::vector<long>& vec) const {
 }
 
 HEPtxt* SEALContext::createPtxt(const std::vector<double>& vec) const {
-  SEALPtxt* ptxt = new SEALPtxt(seal::Plaintext(), CONTENT_TYPE::LONG, *this);
+  SEALPtxt* ptxt = new SEALPtxt(seal::Plaintext(), CONTENT_TYPE::DOUBLE, *this);
   ptxt->double_values = vec;
   return ptxt;
 }
 
 HE_SCHEME SEALContext::scheme() const {
-  BACKEND_LOG << "getting scheme type: " << 
-    (is_ckks() ? HE_SCHEME::CKKS : HE_SCHEME::BFV) <<std::endl;
+  BACKEND_LOG << "getting scheme type: "
+              << (is_ckks() ? HE_SCHEME::CKKS : HE_SCHEME::BFV) << std::endl;
   return is_ckks() ? HE_SCHEME::CKKS : HE_SCHEME::BFV;
 }
 
@@ -321,7 +321,15 @@ std::vector<T> SEALContext::decode(const SEALPtxt& ptxt) const {
 // since the definition is in the cpp we need to instantiate the use functions
 // explicitly. this is not a problem since we know what types they will be used
 // with.
-template std::vector<double> SEALContext::decode(const SEALPtxt& ptxt) const;
+template <>
+std::vector<double> SEALContext::decode<double>(const SEALPtxt& ptxt) const {
+  if (ptxt.double_values.size() != 0) {
+    return ptxt.double_values;
+  }
+  std::vector<double> result;
+  _ckksencoder->decode(ptxt.sealPlaintext(), result);
+  return result;
+}
 
 // template specialization for the `long` decoding function
 template <>

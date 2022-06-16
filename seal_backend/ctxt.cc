@@ -374,28 +374,29 @@ HECtxt* SEALCtxt::subInPlace(double other) {
 // multiplication
 HECtxt* SEALCtxt::operator*(const HEPtxt* other) {
   const SEALPtxt* ptxt = dynamic_cast<const SEALPtxt*>(other);
-  if (ptxt->isAllZero()) {
-    // if we multiplied here the scale would the ciphertext scale * plainscale
-    // butt since we specifically rescale the plaintext to be the same scale
-    // as the ciphertext we can just square the scale and for rescaling the
-    // the plaintext before encryption
-    // TODO: be smarter about the scale. we should really look at the scale and
-    // what the next scale down would lead to and use that scale during encoding
-    BACKEND_LOG << "circumventing transparent ciphertext" << std::endl;
-    SEALPtxt temp = ptxt->rescale(
-        this->_internal_ctxt.scale() * this->_internal_ctxt.scale(),
-        _internal_ctxt.parms_id());
-    SEALCtxt* res = static_cast<SEALCtxt*>(_context.encrypt(&temp));
-    res->_name = _name + " * plaintext";
-    _context._evaluator->relinearize_inplace(res->sealCiphertext(),
-                                             _context.relinKeys());
-    _context._evaluator->rescale_to_next_inplace(res->sealCiphertext());
-    return res;
-  }
+  // if (ptxt->isAllZero()) {
+  //   // if we multiplied here the scale would the ciphertext scale *
+  //   plainscale
+  //   // butt since we specifically rescale the plaintext to be the same scale
+  //   // as the ciphertext we can just square the scale and for rescaling the
+  //   // the plaintext before encryption
+  //   // TODO: be smarter about the scale. we should really look at the scale
+  //   and
+  //   // what the next scale down would lead to and use that scale during
+  //   encoding BACKEND_LOG << "circumventing transparent ciphertext" <<
+  //   std::endl; SEALPtxt temp = ptxt->rescale(
+  //       this->_internal_ctxt.scale() * this->_internal_ctxt.scale(),
+  //       _internal_ctxt.parms_id());
+  //   SEALCtxt* res = static_cast<SEALCtxt*>(_context.encrypt(&temp));
+  //   res->_name = _name + " * plaintext";
+  //   _context._evaluator->relinearize_inplace(res->sealCiphertext(),
+  //                                            _context.relinKeys());
+  //   _context._evaluator->rescale_to_next_inplace(res->sealCiphertext());
+  //   return res;
+  // }
 
   // TODO: shortcut evalution for special case 1
   SEALPtxt rescaled = ptxt->scaleToMatch(*this);
-  // shortcut evalution for special case 0
   BACKEND_LOG << "creating result ctxt" << std::endl;
   SEALCtxt* result =
       new SEALCtxt(_name + " * plaintext", _content_type, _context);
@@ -411,6 +412,7 @@ HECtxt* SEALCtxt::operator*(const HEPtxt* other) {
   } catch (const std::exception& e) {
     logComputationError(_internal_ctxt, rescaled.sealPlaintext(),
                         "operator*(HEPtxt*)", __FILE__, __LINE__, &e);
+    delete result;
     throw;
   }
 
