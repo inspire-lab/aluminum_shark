@@ -234,14 +234,16 @@ class ObjectCleaner(object):
     # super().__init__()
     self.objects = set()
     self.parent = parent
+    if parent is not None:
+      parent.register_object(self)
 
   def register_object(self, object) -> None:
     """
     Register `object` to be destroyed before `self` is destroyed.
     """
     self.objects.add(object)
-    if self.parent is not None:
-      self.parent.register(object)
+    # if self.parent is not None:
+    #   self.parent.register(object)
 
   def remove_object(self, object) -> None:
     """
@@ -251,15 +253,16 @@ class ObjectCleaner(object):
     if object in self.objects:
       self.objects.remove(object)
     if self.parent is not None:
-      self.parent.remove(object)
+      self.parent.remove_object(object)
 
   def destroy(self) -> None:
     """
     Calls destroy on all registerd objects and removes itself from parent.
     """
     if self.parent is not None:
-      self.parent.remove(self)
-    for o in self.objects:
+      self.parent.remove_object(self)
+    while self.objects:
+      o = self.objects.pop()
       o.destroy()
 
 
