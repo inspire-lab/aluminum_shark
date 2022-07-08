@@ -2,6 +2,7 @@
 #define ALUMINUM_SHARK_SEAL_BACKEND_PTXT_H
 
 #include <functional>
+#include <mutex>
 #include <string>
 
 #include "context.h"
@@ -13,7 +14,7 @@ namespace aluminum_shark {
 class SEALPtxt : public HEPtxt {
  public:
   // Plugin API
-  virtual ~SEALPtxt(){};
+  virtual ~SEALPtxt() { count_ptxt(-1); };
 
   virtual const std::string& to_string() const override;
 
@@ -71,13 +72,17 @@ class SEALPtxt : public HEPtxt {
   // rescale the plaintext to 2^scale
   SEALPtxt rescale(double scale) const;
   SEALPtxt rescale(double scale, seal::parms_id_type params_id) const;
+  void rescaleInPalce(double scale, seal::parms_id_type params_id);
 
   SEALPtxt scaleToMatch(const SEALPtxt& ptxt) const;
 
   SEALPtxt scaleToMatch(const SEALCtxt& ctxt) const;
+  void scaleToMatchInPlace(const SEALCtxt& ctxt);
 
   bool isAllZero() const;
   bool isAllOne() const;
+
+  std::mutex mutex;
 
  protected:
   seal::Plaintext _internal_ptxt;
@@ -92,7 +97,13 @@ class SEALPtxt : public HEPtxt {
   bool _allZero = false;
   bool _allOne = false;
 
-  SEALPtxt(const SEALPtxt& other) = default;
+  SEALPtxt(const SEALPtxt& other)
+      : _content_type(other._content_type),
+        _context(other._context),
+        _allZero(other._allZero),
+        _allOne(other._allOne) {
+    count_ptxt(1);
+  };
 
   // Performs the element wise operation given by `op` of this plain text and
   // the `other` and writes the result into `destination`

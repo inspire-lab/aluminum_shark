@@ -1,5 +1,7 @@
 #include "context.h"
 
+#include <stdlib.h>
+
 #include <functional>
 #include <memory>
 #include <string>
@@ -11,6 +13,7 @@
 #include "utils/utils.h"
 
 namespace {
+
 const std::string BACKEND_NAME = "SEAL Backend";
 const seal::SEALVersion sv;
 const std::string BACKEND_STRING =
@@ -170,7 +173,6 @@ HECtxt* SEALContext::encrypt(std::vector<double>& plain,
 #endif
   BACKEND_LOG << "encyrpting plaintext " << name << std::endl;
   HECtxt* ctxt_ptr = encrypt(ptxt, name);
-
 #ifdef DEBUG_BUILD
   debug_vec = decryptDouble(ctxt_ptr);
   print_vector(debug_vec, 10);
@@ -185,6 +187,7 @@ HECtxt* SEALContext::encrypt(HEPtxt* ptxt, const std::string name) const {
   _encryptor->encrypt(seal_ptxt->sealPlaintext(), ctxt_ptr->sealCiphertext());
   return ctxt_ptr;
 }
+
 HECtxt* SEALContext::encrypt(const HEPtxt* ptxt, const std::string name) const {
   const SEALPtxt* seal_ptxt = dynamic_cast<const SEALPtxt*>(ptxt);
   SEALCtxt* ctxt_ptr = new SEALCtxt(name, seal_ptxt->content_type(), *this);
@@ -287,6 +290,26 @@ HEPtxt* SEALContext::encode(const std::vector<double>& plain,
   ptxt_ptr->_allZero = zero_one.first;
   ptxt_ptr->_allOne = zero_one.second;
   return ptxt_ptr;
+}
+
+void SEALContext::encode(SEALPtxt& ptxt, seal::parms_id_type params_id,
+                         double scale) const {
+  if (is_ckks()) {
+    if (ptxt.double_values.size() == 1) {
+      _ckksencoder->encode(ptxt.double_values[0], params_id, scale,
+                           ptxt._internal_ptxt);
+    } else {
+      _ckksencoder->encode(ptxt.double_values, params_id, scale,
+                           ptxt._internal_ptxt);
+    }
+  } else {
+    if (ptxt.long_values.size() == 1) {
+      _batchencoder->encode(std::vector<long>(ptxt.long_values[0], _slot_count),
+                            ptxt._internal_ptxt);
+    } else {
+      _batchencoder->encode(ptxt.long_values, ptxt._internal_ptxt);
+    }
+  }
 }
 
 HEPtxt* SEALContext::createPtxt(const std::vector<long>& vec) const {

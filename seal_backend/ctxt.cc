@@ -5,6 +5,7 @@
 #include <typeinfo>
 
 #include "logging.h"
+#include "object_count.h"
 #include "ptxt.h"
 #include "utils.h"
 
@@ -19,7 +20,9 @@ SEALCtxt::SEALCtxt(seal::Ciphertext ctxt, const std::string& name,
     : _name(name),
       _content_type(content_type),
       _context(context),
-      _internal_ctxt(ctxt){};
+      _internal_ctxt(ctxt) {
+  count_ctxt(1);
+};
 
 const seal::Ciphertext& SEALCtxt::sealCiphertext() const {
   return _internal_ctxt;
@@ -152,7 +155,7 @@ HECtxt* SEALCtxt::multInPlace(const HECtxt* other) {
 // ctxt and plain
 
 // addition
-HECtxt* SEALCtxt::operator+(const HEPtxt* other) {
+HECtxt* SEALCtxt::operator+(HEPtxt* other) {
   const SEALPtxt* ptxt = dynamic_cast<const SEALPtxt*>(other);
   SEALCtxt* result =
       new SEALCtxt(_name + " + plaintext", _content_type, _context);
@@ -169,7 +172,7 @@ HECtxt* SEALCtxt::operator+(const HEPtxt* other) {
   return result;
 }
 
-HECtxt* SEALCtxt::addInPlace(const HEPtxt* other) {
+HECtxt* SEALCtxt::addInPlace(HEPtxt* other) {
   const SEALPtxt* ptxt = dynamic_cast<const SEALPtxt*>(other);
   SEALPtxt rescaled = ptxt->scaleToMatch(*this);
 
@@ -372,8 +375,8 @@ HECtxt* SEALCtxt::subInPlace(double other) {
 }
 
 // multiplication
-HECtxt* SEALCtxt::operator*(const HEPtxt* other) {
-  const SEALPtxt* ptxt = dynamic_cast<const SEALPtxt*>(other);
+HECtxt* SEALCtxt::operator*(HEPtxt* other) {
+  SEALPtxt* ptxt = dynamic_cast<SEALPtxt*>(other);
   // if (ptxt->isAllZero()) {
   //   // if we multiplied here the scale would the ciphertext scale *
   //   plainscale
@@ -396,21 +399,25 @@ HECtxt* SEALCtxt::operator*(const HEPtxt* other) {
   // }
 
   // TODO: shortcut evalution for special case 1
-  SEALPtxt rescaled = ptxt->scaleToMatch(*this);
+  ptxt->mutex.lock();
+  if (!are_close(_internal_ctxt.scale(), ptxt->sealPlaintext().scale())) {
+    ptxt->scaleToMatchInPlace(*this);
+  }
+  ptxt->mutex.unlock();
   BACKEND_LOG << "creating result ctxt" << std::endl;
   SEALCtxt* result =
       new SEALCtxt(_name + " * plaintext", _content_type, _context);
   try {
     BACKEND_LOG << "running multiplication" << std::endl;
-    _context._evaluator->multiply_plain(
-        _internal_ctxt, rescaled.sealPlaintext(), result->sealCiphertext());
+    _context._evaluator->multiply_plain(_internal_ctxt, ptxt->sealPlaintext(),
+                                        result->sealCiphertext());
     BACKEND_LOG << "running relin" << std::endl;
     _context._evaluator->relinearize_inplace(result->sealCiphertext(),
                                              _context.relinKeys());
     BACKEND_LOG << "running rescale" << std::endl;
     _context._evaluator->rescale_to_next_inplace(result->sealCiphertext());
   } catch (const std::exception& e) {
-    logComputationError(_internal_ctxt, rescaled.sealPlaintext(),
+    logComputationError(_internal_ctxt, ptxt->sealPlaintext(),
                         "operator*(HEPtxt*)", __FILE__, __LINE__, &e);
     delete result;
     throw;
@@ -420,7 +427,7 @@ HECtxt* SEALCtxt::operator*(const HEPtxt* other) {
   return result;
 }
 
-HECtxt* SEALCtxt::multInPlace(const HEPtxt* other) {
+HECtxt* SEALCtxt::multInPlace(HEPtxt* other) {
   const SEALPtxt* ptxt = dynamic_cast<const SEALPtxt*>(other);
   if (ptxt->isAllZero()) {
     // if we multiplied here the scale would the ciphertext scale * plainscale

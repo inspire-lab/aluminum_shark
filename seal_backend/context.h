@@ -7,6 +7,7 @@
 #include "backend.h"
 #include "backend_logging.h"
 #include "he_backend/he_backend.h"
+#include "object_count.h"
 
 namespace aluminum_shark {
 
@@ -39,6 +40,24 @@ class SEALContext : public HEContext {
   virtual ~SEALContext() {
     BACKEND_LOG << "Destroying Context " << reinterpret_cast<void*>(this)
                 << std::endl;
+    if (AS_OBJECT_COUNT) {
+      std::cout << "object statistics:" << std::endl;
+      std::cout << "  ptxt still alive count: " << get_ptxt_count()
+                << std::endl;
+      std::cout << "  max alive ptxt: " << get_max_ptxt_count() << std::endl;
+      std::cout << "  total created ptxt: " << get_ptxt_creations()
+                << std::endl;
+      std::cout << "  total destroyed ptxt: " << get_ptxt_destructions()
+                << std::endl;
+
+      std::cout << "  ctxt still alive count: " << get_ctxt_count()
+                << std::endl;
+      std::cout << "  max alive ctxt: " << get_max_ctxt_count() << std::endl;
+      std::cout << "  total created ctxt: " << get_ctxt_creations()
+                << std::endl;
+      std::cout << "  total destroyed ctxt: " << get_ctxt_destructions()
+                << std::endl;
+    }
   };
 
   virtual const std::string& to_string() const override;
@@ -113,6 +132,9 @@ class SEALContext : public HEContext {
 
   template <class T>
   std::vector<T> decode(const SEALPtxt& ptxt) const;
+
+  void encode(SEALPtxt& ptxt, seal::parms_id_type params_id,
+              double scale) const;
 
   const seal::Evaluator& evaluator() const;
 

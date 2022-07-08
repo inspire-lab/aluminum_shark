@@ -11,7 +11,7 @@ namespace aluminum_shark {
 class SEALCtxt : public HECtxt {
  public:
   // Plugin API
-  virtual ~SEALCtxt(){};
+  virtual ~SEALCtxt() { count_ctxt(-1); };
 
   virtual const std::string& to_string() const override;
 
@@ -34,8 +34,8 @@ class SEALCtxt : public HECtxt {
   // ctxt and plain
 
   // addition
-  virtual HECtxt* operator+(const HEPtxt* other) override;
-  virtual HECtxt* addInPlace(const HEPtxt* other) override;
+  virtual HECtxt* operator+(HEPtxt* other) override;
+  virtual HECtxt* addInPlace(HEPtxt* other) override;
   virtual HECtxt* operator+(long other) override;
   virtual HECtxt* addInPlace(long other) override;
   virtual HECtxt* operator+(double other) override;
@@ -50,14 +50,14 @@ class SEALCtxt : public HECtxt {
   virtual HECtxt* subInPlace(double other) override;
 
   // multiplication
-  virtual HECtxt* operator*(const HEPtxt* other) override;
-  virtual HECtxt* multInPlace(const HEPtxt* other) override;
+  virtual HECtxt* operator*(HEPtxt* other) override;
+  virtual HECtxt* multInPlace(HEPtxt* other) override;
   virtual HECtxt* operator*(long other) override;
   virtual HECtxt* multInPlace(long other) override;
   virtual HECtxt* operator*(double other) override;
   virtual HECtxt* multInPlace(double other) override;
 
-  //Rotation
+  // Rotation
   virtual HECtxt* rotate(int steps) override;
   virtual HECtxt* rotInPlace(int steps) override;
 
@@ -81,7 +81,13 @@ class SEALCtxt : public HECtxt {
   const SEALContext& _context;
   seal::Ciphertext _internal_ctxt;
 
-  SEALCtxt(const SEALCtxt& other) = default;
+  SEALCtxt(const SEALCtxt& other)
+      : _name(other._name),
+        _content_type(other._content_type),
+        _context(other._context),
+        _internal_ctxt(other._internal_ctxt) {
+    count_ctxt(1);
+  };
 };
 
 }  // namespace aluminum_shark

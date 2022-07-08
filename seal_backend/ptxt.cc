@@ -8,7 +8,9 @@ namespace aluminum_shark {
 
 SEALPtxt::SEALPtxt(seal::Plaintext ptxt, CONTENT_TYPE content_type,
                    const SEALContext& context)
-    : _internal_ptxt(ptxt), _content_type(content_type), _context(context) {}
+    : _internal_ptxt(ptxt), _content_type(content_type), _context(context) {
+  count_ptxt(1);
+}
 
 seal::Plaintext& SEALPtxt::sealPlaintext() { return _internal_ptxt; }
 const seal::Plaintext& SEALPtxt::sealPlaintext() const {
@@ -56,12 +58,23 @@ SEALPtxt SEALPtxt::rescale(double scale, seal::parms_id_type params_id) const {
   }
 }
 
+void SEALPtxt::rescaleInPalce(double scale, seal::parms_id_type params_id) {
+  BACKEND_LOG << "resacling plaintext from " << _internal_ptxt.scale() << " to "
+              << scale << std::endl;
+  _context.encode(*this, params_id, scale);
+}
+
 SEALPtxt SEALPtxt::scaleToMatch(const SEALPtxt& ptxt) const {
   return rescale(ptxt.sealPlaintext().scale(), ptxt.sealPlaintext().parms_id());
 }
 
 SEALPtxt SEALPtxt::scaleToMatch(const SEALCtxt& ctxt) const {
   return rescale(ctxt.sealCiphertext().scale(),
+                 ctxt.sealCiphertext().parms_id());
+}
+
+void SEALPtxt::scaleToMatchInPlace(const SEALCtxt& ctxt) {
+  rescaleInPalce(ctxt.sealCiphertext().scale(),
                  ctxt.sealCiphertext().parms_id());
 }
 
