@@ -377,11 +377,15 @@ class CipherText(ObjectCleaner):
   A ciphertext object. It is valid as long as its `_handle` is not `None`. 
   """
 
-  def __init__(self, handle: ctypes.c_void_p, context: "Context",
-               shape: Iterable[int]) -> None:
+  def __init__(self,
+               handle: ctypes.c_void_p,
+               context: "Context",
+               shape: Iterable[int],
+               layout: str = None) -> None:
     super().__init__(parent=context)
     self.__handle = handle
     self.__context = context
+    self.layout = layout
 
   @property
   def _handle(self):
@@ -507,7 +511,10 @@ class Context(ObjectCleaner):
 
     ctxt_handle = __enc_func(ptxt_ptr, len(ptxt), name_arg, shape_ptr,
                              shape_size, layout_c, self.__handle)
-    return CipherText(handle=ctxt_handle, context=self, shape=shape)
+    return CipherText(handle=ctxt_handle,
+                      context=self,
+                      shape=shape,
+                      layout=layout)
 
   def decrypt_long(self, ctxt: CipherText) -> List[int]:
     """
