@@ -26,6 +26,9 @@ bool log();
 }  // namespace aluminum_shark
 
 // streaming interface
+#define BACKEND_LOG_FAIL_FILE_LINE(FILE, LINE)              \
+        std::cout                                           \
+        << "SEAL Backend: [" << FILE << ":" << LINE << "] "
 // set FILE and LINE manually
 #define BACKEND_LOG_FILE_LINE(FILE, LINE)              \
   (::aluminum_shark::seal_backend::log()               \
