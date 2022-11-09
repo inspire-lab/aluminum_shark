@@ -34,16 +34,16 @@ class SEALCtxt : public HECtxt {
   // ctxt and plain
 
   // addition
-  virtual HECtxt* operator+(const HEPtxt* other) override;
-  virtual HECtxt* addInPlace(const HEPtxt* other) override;
+  virtual HECtxt* operator+(HEPtxt* other) override;
+  virtual HECtxt* addInPlace(HEPtxt* other) override;
   virtual HECtxt* operator+(long other) override;
   virtual HECtxt* addInPlace(long other) override;
   virtual HECtxt* operator+(double other) override;
   virtual HECtxt* addInPlace(double other) override;
 
   // subtraction
-  virtual HECtxt* operator-(const HEPtxt* other) override;
-  virtual HECtxt* subInPlace(const HEPtxt* other) override;
+  virtual HECtxt* operator-(HEPtxt* other) override;
+  virtual HECtxt* subInPlace(HEPtxt* other) override;
   virtual HECtxt* operator-(long other) override;
   virtual HECtxt* subInPlace(long other) override;
   virtual HECtxt* operator-(double other) override;
@@ -57,7 +57,7 @@ class SEALCtxt : public HECtxt {
   virtual HECtxt* operator*(double other) override;
   virtual HECtxt* multInPlace(double other) override;
 
-  //Rotation
+  // Rotation
   virtual HECtxt* rotate(int steps) override;
   virtual HECtxt* rotInPlace(int steps) override;
 

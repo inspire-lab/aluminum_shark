@@ -31,7 +31,11 @@ CONTENT_TYPE SEALCtxt::content_type() const { return _content_type; }
 const std::string& SEALCtxt::name() const { return _name; }
 
 // TODO: more info
-const std::string& SEALCtxt::to_string() const { return _name; }
+const std::string& SEALCtxt::to_string() const {
+  std::stringstream ss;
+  ss << "SEAL Ctxt: " _name << "scale " << _internal_ctxt.scale();
+  return ss.str();
+}
 
 const HEContext* SEALCtxt::getContext() const { return &_context; }
 
@@ -485,16 +489,16 @@ HECtxt* SEALCtxt::multInPlace(double other) {
   return this;
 }
 
-//Rotation
+// Rotation
 HECtxt* SEALCtxt::rotInPlace(int steps) {
-  _context._evaluator->rotate_vector_inplace(
-            _internal_ctxt, steps, _context._gal_keys);
-  return this;            
+  _context._evaluator->rotate_vector_inplace(_internal_ctxt, steps,
+                                             _context._gal_keys);
+  return this;
 }
 
 HECtxt* SEALCtxt::rotate(int steps) {
-    HECtxt* copy = this->deepCopy();
-    return copy->rotInPlace(steps);
+  HECtxt* copy = this->deepCopy();
+  return copy->rotInPlace(steps);
 }
 
 }  // namespace aluminum_shark
