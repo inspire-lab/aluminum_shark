@@ -8,7 +8,9 @@ namespace aluminum_shark {
 
 SEALPtxt::SEALPtxt(seal::Plaintext ptxt, CONTENT_TYPE content_type,
                    const SEALContext& context)
-    : _internal_ptxt(ptxt), _content_type(content_type), _context(context) {}
+    : _internal_ptxt(ptxt), _content_type(content_type), _context(context) {
+  count_ptxt(1);
+}
 
 seal::Plaintext& SEALPtxt::sealPlaintext() { return _internal_ptxt; }
 const seal::Plaintext& SEALPtxt::sealPlaintext() const {
@@ -19,7 +21,7 @@ CONTENT_TYPE SEALPtxt::content_type() const { return _content_type; }
 
 // TODO: better strings
 static const std::string placeholder = "this is a plaintext";
-const std::string& SEALPtxt::to_string() const { return placeholder; }
+std::string SEALPtxt::to_string() const { return placeholder; }
 
 const HEContext* SEALPtxt::getContext() const { return &_context; }
 
@@ -44,18 +46,22 @@ SEALPtxt SEALPtxt::rescale(double scale, seal::parms_id_type params_id) const {
   BACKEND_LOG << "resacling plaintext from " << _internal_ptxt.scale() << " to "
               << scale << std::endl;
   if (_content_type == CONTENT_TYPE::LONG) {
-    std::vector<long> content = _context.decode<long>(*this);
     return SEALPtxt(
-        static_cast<SEALPtxt*>(_context.encode(content, params_id, scale))
+        static_cast<SEALPtxt*>(_context.encode(long_values, params_id, scale))
             ->sealPlaintext(),
         _content_type, _context);
   } else {
-    std::vector<double> content = _context.decode<double>(*this);
     return SEALPtxt(
-        static_cast<SEALPtxt*>(_context.encode(content, params_id, scale))
+        static_cast<SEALPtxt*>(_context.encode(double_values, params_id, scale))
             ->sealPlaintext(),
         _content_type, _context);
   }
+}
+
+void SEALPtxt::rescaleInPalce(double scale, seal::parms_id_type params_id) {
+  BACKEND_LOG << "resacling plaintext from " << _internal_ptxt.scale() << " to "
+              << scale << std::endl;
+  _context.encode(*this, params_id, scale);
 }
 
 SEALPtxt SEALPtxt::scaleToMatch(const SEALPtxt& ptxt) const {
@@ -64,6 +70,11 @@ SEALPtxt SEALPtxt::scaleToMatch(const SEALPtxt& ptxt) const {
 
 SEALPtxt SEALPtxt::scaleToMatch(const SEALCtxt& ctxt) const {
   return rescale(ctxt.sealCiphertext().scale(),
+                 ctxt.sealCiphertext().parms_id());
+}
+
+void SEALPtxt::scaleToMatchInPlace(const SEALCtxt& ctxt) {
+  rescaleInPalce(ctxt.sealCiphertext().scale(),
                  ctxt.sealCiphertext().parms_id());
 }
 

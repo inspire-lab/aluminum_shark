@@ -31,9 +31,9 @@ CONTENT_TYPE SEALCtxt::content_type() const { return _content_type; }
 const std::string& SEALCtxt::name() const { return _name; }
 
 // TODO: more info
-const std::string& SEALCtxt::to_string() const {
+std::string SEALCtxt::to_string() const {
   std::stringstream ss;
-  ss << "SEAL Ctxt: " _name << "scale " << _internal_ctxt.scale();
+  ss << "SEAL Ctxt: " << _name << "scale " << _internal_ctxt.scale();
   return ss.str();
 }
 
@@ -70,9 +70,11 @@ HECtxt* SEALCtxt::operator+(const HECtxt* other) {
 HECtxt* SEALCtxt::addInPlace(const HECtxt* other) {
   const SEALCtxt* other_ctxt = dynamic_cast<const SEALCtxt*>(other);
   try {
+    std::cout << "adding" << std::endl;
     _context._evaluator->add_inplace(_internal_ctxt,
                                      other_ctxt->sealCiphertext());
   } catch (const std::exception& e) {
+    std::cout << e.what() << std::endl;
     logComputationError(_internal_ctxt, other_ctxt->sealCiphertext(),
                         "addInplace(HECtxt*)", __FILE__, __LINE__, &e);
     throw;
@@ -156,8 +158,8 @@ HECtxt* SEALCtxt::multInPlace(const HECtxt* other) {
 // ctxt and plain
 
 // addition
-HECtxt* SEALCtxt::operator+(const HEPtxt* other) {
-  const SEALPtxt* ptxt = dynamic_cast<const SEALPtxt*>(other);
+HECtxt* SEALCtxt::operator+(HEPtxt* other) {
+  SEALPtxt* ptxt = dynamic_cast<SEALPtxt*>(other);
   SEALCtxt* result =
       new SEALCtxt(_name + " + plaintext", _content_type, _context);
   SEALPtxt rescaled = ptxt->scaleToMatch(*this);
@@ -173,8 +175,8 @@ HECtxt* SEALCtxt::operator+(const HEPtxt* other) {
   return result;
 }
 
-HECtxt* SEALCtxt::addInPlace(const HEPtxt* other) {
-  const SEALPtxt* ptxt = dynamic_cast<const SEALPtxt*>(other);
+HECtxt* SEALCtxt::addInPlace(HEPtxt* other) {
+  SEALPtxt* ptxt = dynamic_cast<SEALPtxt*>(other);
   SEALPtxt rescaled = ptxt->scaleToMatch(*this);
 
   try {
@@ -270,7 +272,7 @@ HECtxt* SEALCtxt::addInPlace(double other) {
 }
 
 // subtraction
-HECtxt* SEALCtxt::operator-(const HEPtxt* other) {
+HECtxt* SEALCtxt::operator-(HEPtxt* other) {
   const SEALPtxt* ptxt = dynamic_cast<const SEALPtxt*>(other);
   SEALCtxt* result =
       new SEALCtxt(_name + " + plaintext", _content_type, _context);
@@ -287,7 +289,7 @@ HECtxt* SEALCtxt::operator-(const HEPtxt* other) {
   return result;
 }
 
-HECtxt* SEALCtxt::subInPlace(const HEPtxt* other) {
+HECtxt* SEALCtxt::subInPlace(HEPtxt* other) {
   const SEALPtxt* ptxt = dynamic_cast<const SEALPtxt*>(other);
   SEALPtxt rescaled = ptxt->rescale(_internal_ctxt.scale());
   try {
@@ -376,7 +378,7 @@ HECtxt* SEALCtxt::subInPlace(double other) {
 }
 
 // multiplication
-HECtxt* SEALCtxt::operator*(const HEPtxt* other) {
+HECtxt* SEALCtxt::operator*(HEPtxt* other) {
   const SEALPtxt* ptxt = dynamic_cast<const SEALPtxt*>(other);
   if (ptxt->isAllZero()) {
     // if we multiplied here the scale would the ciphertext scale * plainscale
@@ -416,7 +418,7 @@ HECtxt* SEALCtxt::operator*(const HEPtxt* other) {
   return result;
 }
 
-HECtxt* SEALCtxt::multInPlace(const HEPtxt* other) {
+HECtxt* SEALCtxt::multInPlace(HEPtxt* other) {
   const SEALPtxt* ptxt = dynamic_cast<const SEALPtxt*>(other);
   if (ptxt->isAllZero()) {
     // if we multiplied here the scale would the ciphertext scale * plainscale
@@ -443,7 +445,6 @@ HECtxt* SEALCtxt::multInPlace(const HEPtxt* other) {
     _context._evaluator->relinearize_inplace(_internal_ctxt,
                                              _context.relinKeys());
     _context._evaluator->rescale_to_next_inplace(_internal_ctxt);
-
   } catch (const std::exception& e) {
     logComputationError(_internal_ctxt, rescaled.sealPlaintext(),
                         "multInPlace(HEPtxt*)", __FILE__, __LINE__, &e);

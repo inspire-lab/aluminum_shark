@@ -1,5 +1,7 @@
 #include "context.h"
 
+#include <stdlib.h>
+
 #include <functional>
 #include <memory>
 #include <string>
@@ -11,6 +13,7 @@
 #include "utils/utils.h"
 
 namespace {
+
 const std::string BACKEND_NAME = "SEAL Backend";
 const seal::SEALVersion sv;
 const std::string BACKEND_STRING =
@@ -160,6 +163,7 @@ HECtxt* SEALContext::encrypt(std::vector<long>& plain,
 
 HECtxt* SEALContext::encrypt(std::vector<double>& plain,
                              const std::string name) const {
+  BACKEND_LOG << "encoding plaintext " << name << std::endl;
   HEPtxt* ptxt = encode(plain);  // we own this memory now. need to delete it
 #ifdef DEBUG_BUILD
   BACKEND_LOG << "scale " << ((SEALPtxt*)ptxt)->sealPlaintext().scale()
@@ -167,8 +171,8 @@ HECtxt* SEALContext::encrypt(std::vector<double>& plain,
   std::vector<double> debug_vec = decodeDouble(ptxt);
   print_vector(debug_vec, 10);
 #endif
+  BACKEND_LOG << "encyrpting plaintext " << name << std::endl;
   HECtxt* ctxt_ptr = encrypt(ptxt, name);
-
 #ifdef DEBUG_BUILD
   debug_vec = decryptDouble(ctxt_ptr);
   print_vector(debug_vec, 10);
@@ -183,6 +187,7 @@ HECtxt* SEALContext::encrypt(HEPtxt* ptxt, const std::string name) const {
   _encryptor->encrypt(seal_ptxt->sealPlaintext(), ctxt_ptr->sealCiphertext());
   return ctxt_ptr;
 }
+
 HECtxt* SEALContext::encrypt(const HEPtxt* ptxt, const std::string name) const {
   const SEALPtxt* seal_ptxt = dynamic_cast<const SEALPtxt*>(ptxt);
   SEALCtxt* ctxt_ptr = new SEALCtxt(name, seal_ptxt->content_type(), *this);
@@ -200,8 +205,12 @@ std::vector<long> SEALContext::decryptLong(HECtxt* ctxt) const {
 
 std::vector<double> SEALContext::decryptDouble(HECtxt* ctxt) const {
   SEALCtxt* seal_ctxt = dynamic_cast<SEALCtxt*>(ctxt);
+  BACKEND_LOG << "decrypting " << std::endl;
   SEALPtxt result(seal::Plaintext(), CONTENT_TYPE::DOUBLE, *this);
+  BACKEND_LOG << "created result plaintext. calling decyrption function "
+              << std::endl;
   _decryptor->decrypt(seal_ctxt->sealCiphertext(), result.sealPlaintext());
+  BACKEND_LOG << "decryption successful. decoding next" << std::endl;
   return decodeDouble(&result);
 }
 
@@ -283,6 +292,44 @@ HEPtxt* SEALContext::encode(const std::vector<double>& plain,
   return ptxt_ptr;
 }
 
+void SEALContext::encode(SEALPtxt& ptxt, seal::parms_id_type params_id,
+                         double scale) const {
+  if (is_ckks()) {
+    if (ptxt.double_values.size() == 1) {
+      _ckksencoder->encode(ptxt.double_values[0], params_id, scale,
+                           ptxt._internal_ptxt);
+    } else {
+      _ckksencoder->encode(ptxt.double_values, params_id, scale,
+                           ptxt._internal_ptxt);
+    }
+  } else {
+    if (ptxt.long_values.size() == 1) {
+      _batchencoder->encode(std::vector<long>(ptxt.long_values[0], _slot_count),
+                            ptxt._internal_ptxt);
+    } else {
+      _batchencoder->encode(ptxt.long_values, ptxt._internal_ptxt);
+    }
+  }
+}
+
+HEPtxt* SEALContext::createPtxt(const std::vector<long>& vec) const {
+  SEALPtxt* ptxt = new SEALPtxt(seal::Plaintext(), CONTENT_TYPE::LONG, *this);
+  ptxt->long_values = vec;
+  return ptxt;
+}
+
+HEPtxt* SEALContext::createPtxt(const std::vector<double>& vec) const {
+  SEALPtxt* ptxt = new SEALPtxt(seal::Plaintext(), CONTENT_TYPE::DOUBLE, *this);
+  ptxt->double_values = vec;
+  return ptxt;
+}
+
+HE_SCHEME SEALContext::scheme() const {
+  BACKEND_LOG << "getting scheme type: "
+              << (is_ckks() ? HE_SCHEME::CKKS : HE_SCHEME::BFV) << std::endl;
+  return is_ckks() ? HE_SCHEME::CKKS : HE_SCHEME::BFV;
+}
+
 // decoding
 
 // need to move the function definintion into the cpp file so we can use the
@@ -297,7 +344,15 @@ std::vector<T> SEALContext::decode(const SEALPtxt& ptxt) const {
 // since the definition is in the cpp we need to instantiate the use functions
 // explicitly. this is not a problem since we know what types they will be used
 // with.
-template std::vector<double> SEALContext::decode(const SEALPtxt& ptxt) const;
+template <>
+std::vector<double> SEALContext::decode<double>(const SEALPtxt& ptxt) const {
+  if (ptxt.double_values.size() != 0) {
+    return ptxt.double_values;
+  }
+  std::vector<double> result;
+  _ckksencoder->decode(ptxt.sealPlaintext(), result);
+  return result;
+}
 
 // template specialization for the `long` decoding function
 template <>
