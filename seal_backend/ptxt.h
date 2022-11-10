@@ -83,6 +83,8 @@ class SEALPtxt : public HEPtxt {
   bool isAllZero() const;
   bool isAllOne() const;
 
+  bool isValidMask() const;
+
   std::mutex mutex;
 
  protected:

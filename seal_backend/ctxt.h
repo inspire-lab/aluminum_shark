@@ -57,6 +57,11 @@ class SEALCtxt : public HECtxt {
   virtual HECtxt* operator*(double other) override;
   virtual HECtxt* multInPlace(double other) override;
 
+  // masking. a special kind of multiplication where the right hand side
+  // contains only 0s and 1s
+  virtual HECtxt* mask(HEPtxt* other) override;
+  virtual HECtxt* maskInPlace(HEPtxt* other) override;
+
   // Rotation
   virtual HECtxt* rotate(int steps) override;
   virtual HECtxt* rotInPlace(int steps) override;

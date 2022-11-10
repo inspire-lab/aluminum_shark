@@ -396,6 +396,25 @@ HEPtxt* SEALPtxt::multInPlace(double other) {
   return this;
 }
 
+bool SEALPtxt::isValidMask() const {
+  if (_content_type == CONTENT_TYPE::DOUBLE) {
+    for (const auto& v : double_values) {
+      if (v != 0 || v != 1) {
+        return false;
+      }
+    }
+  } else if (_content_type == CONTENT_TYPE::LONG) {
+    for (const auto& v : long_values) {
+      if (v != 0 || v != 1) {
+        return false;
+      }
+    }
+  } else {
+    return false;
+  }
+  return true;
+}
+
 HEPtxt* SEALPtxt::deepCopy() {
   SEALPtxt* result = new SEALPtxt(*this);
   return result;
