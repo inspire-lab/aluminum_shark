@@ -2,7 +2,7 @@ import os
 # os.environ['TF_CPP_MIN_LOG_LEVEL'] = '0'
 # os.environ['TF_CPP_MAX_VLOG_LEVEL'] = '1'
 os.environ['ALUMINUM_SHARK_LOGGING'] = '1'
-# os.environ['ALUMINUM_SHARK_BACKEND_LOGGING'] = '1'
+os.environ['ALUMINUM_SHARK_BACKEND_LOGGING'] = '1'
 os.environ['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices'
 
 import tensorflow as tf
@@ -14,7 +14,7 @@ print('TF version', tf.__version__)
 shark.set_log_level(0)
 
 n_items = 5 * 5
-x_in = np.arange(n_items).reshape(5, 5) / n_items
+x_in = np.arange(n_items, dtype=float).reshape(5, 5)
 print(x_in)
 
 
@@ -30,10 +30,9 @@ y_true = create_model()(x_in)
 print(y_true)
 
 # set it all up
-backend = shark.HEBackend(
-    '/home/robert/workspace/aluminum_shark/seal_backend/aluminum_shark_seal.so')
+backend = shark.HEBackend()
 
-context = backend.createContextCKKS(8192, [60, 40, 40, 60], 40)
+context = backend.createContextCKKS(8192, [60, 30, 30, 30, 60], 30)
 context.create_keys()
 ctxt = context.encrypt(x_in, name='x', dtype=float, layout='e2dm')
 
@@ -49,7 +48,7 @@ decrypted = np.array(decrypted)
 if np.all(abs(decrypted - y_true) < 0.001):
   print("decryption with in rounding tolerance")
 else:
-  print('decrypted values', decrypted)
+  print('decrypted values \n', decrypted)
   print('actual values', y_true)
   raise Exception('decryption does not match plaintext execution')
 
