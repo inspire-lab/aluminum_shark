@@ -10,13 +10,14 @@
 #include "seal/seal.h"
 
 namespace aluminum_shark {
-// TODO: save the plain values in here and only return them encoded when neeeded
+// TODO: save the plain values in here and only return them encoded when
+// neeeded
 class SEALPtxt : public HEPtxt {
  public:
   // Plugin API
   virtual ~SEALPtxt() { count_ptxt(-1); };
 
-  virtual const std::string& to_string() const override;
+  virtual std::string to_string() const override;
 
   virtual const HEContext* getContext() const override;
 
@@ -81,6 +82,9 @@ class SEALPtxt : public HEPtxt {
 
   bool isAllZero() const;
   bool isAllOne() const;
+
+
+  bool isValidMask() const;
 
   std::mutex mutex;
 

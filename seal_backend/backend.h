@@ -30,7 +30,7 @@ class SEALBackend : public HEBackend {
 
   virtual const std::string& name() override;
   virtual const std::string& to_string() override;
-  virtual const API_VERSION& api_version();
+  virtual const API_VERSION& api_version() override;
 
  private:
   const API_VERSION _version;

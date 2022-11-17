@@ -666,7 +666,8 @@ class HEBackend(ObjectCleaner):
       return self.__layouts
     size = ctypes.c_size_t(0)
     layouts = get_avalailabe_layouts_func(ctypes.byref(size))
-    self.__layouts = [l.decode('utf-8') for l in layouts[:2]]
+    size = size.value
+    self.__layouts = [l.decode('utf-8') for l in layouts[:size]]
     return self.__layouts
 
   def __repr__(self) -> str:

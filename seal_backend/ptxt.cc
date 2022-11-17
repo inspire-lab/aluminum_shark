@@ -21,7 +21,7 @@ CONTENT_TYPE SEALPtxt::content_type() const { return _content_type; }
 
 // TODO: better strings
 static const std::string placeholder = "this is a plaintext";
-const std::string& SEALPtxt::to_string() const { return placeholder; }
+std::string SEALPtxt::to_string() const { return placeholder; }
 
 const HEContext* SEALPtxt::getContext() const { return &_context; }
 
@@ -394,6 +394,25 @@ HEPtxt* SEALPtxt::multInPlace(double other) {
   _internal_ptxt = std::move(temp_ptxt->_internal_ptxt);
   delete temp_ptxt;
   return this;
+}
+
+bool SEALPtxt::isValidMask() const {
+  if (_content_type == CONTENT_TYPE::DOUBLE) {
+    for (const auto& v : double_values) {
+      if (v != 0 || v != 1) {
+        return false;
+      }
+    }
+  } else if (_content_type == CONTENT_TYPE::LONG) {
+    for (const auto& v : long_values) {
+      if (v != 0 || v != 1) {
+        return false;
+      }
+    }
+  } else {
+    return false;
+  }
+  return true;
 }
 
 HEPtxt* SEALPtxt::deepCopy() {

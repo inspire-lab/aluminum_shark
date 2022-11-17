@@ -13,7 +13,7 @@ class SEALCtxt : public HECtxt {
   // Plugin API
   virtual ~SEALCtxt() { count_ctxt(-1); };
 
-  virtual const std::string& to_string() const override;
+  virtual std::string to_string() const override;
 
   virtual const HEContext* getContext() const override;
 
@@ -42,8 +42,8 @@ class SEALCtxt : public HECtxt {
   virtual HECtxt* addInPlace(double other) override;
 
   // subtraction
-  virtual HECtxt* operator-(const HEPtxt* other) override;
-  virtual HECtxt* subInPlace(const HEPtxt* other) override;
+  virtual HECtxt* operator-(HEPtxt* other) override;
+  virtual HECtxt* subInPlace(HEPtxt* other) override;
   virtual HECtxt* operator-(long other) override;
   virtual HECtxt* subInPlace(long other) override;
   virtual HECtxt* operator-(double other) override;
