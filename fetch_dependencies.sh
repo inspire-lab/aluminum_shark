@@ -16,6 +16,6 @@ then
   git -C fetch dependencies/tensorflow
   git -C dependencies/tensorflow switch ${ALUMINUM_SHARK_TF_VERSION}
 else
-  git clone --depth 1 --branch ${ALUMINUM_SHARK_TF_VERSION} git@github.com:podschwadt/aluminum_shark_tf.git dependencies/tensorflow
+  git clone --depth 1 --branch ${ALUMINUM_SHARK_TF_VERSION} git@github.com:inspire-lab/aluminum_shark_tf.git dependencies/tensorflow
 fi
 

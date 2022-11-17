@@ -33,3 +33,4 @@
 test/py_handle_test
 test/seal_test
 test/substract_test
+test/rotate_test

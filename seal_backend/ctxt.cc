@@ -5,6 +5,7 @@
 #include <typeinfo>
 
 #include "logging.h"
+#include "object_count.h"
 #include "ptxt.h"
 #include "utils.h"
 
@@ -19,7 +20,9 @@ SEALCtxt::SEALCtxt(seal::Ciphertext ctxt, const std::string& name,
     : _name(name),
       _content_type(content_type),
       _context(context),
-      _internal_ctxt(ctxt){};
+      _internal_ctxt(ctxt) {
+  count_ctxt(1);
+};
 
 const seal::Ciphertext& SEALCtxt::sealCiphertext() const {
   return _internal_ctxt;
@@ -216,6 +219,7 @@ HECtxt* SEALCtxt::multInPlace(const HECtxt* other) {
 // addition
 HECtxt* SEALCtxt::operator+(HEPtxt* other) {
   SEALPtxt* ptxt = dynamic_cast<SEALPtxt*>(other);
+
   SEALCtxt* result =
       new SEALCtxt(_name + " + plaintext", _content_type, _context);
   SEALPtxt rescaled = ptxt->scaleToMatch(*this);
@@ -435,42 +439,55 @@ HECtxt* SEALCtxt::subInPlace(double other) {
 
 // multiplication
 HECtxt* SEALCtxt::operator*(HEPtxt* other) {
-  const SEALPtxt* ptxt = dynamic_cast<const SEALPtxt*>(other);
-  if (ptxt->isAllZero()) {
-    // if we multiplied here the scale would the ciphertext scale * plainscale
-    // butt since we specifically rescale the plaintext to be the same scale
-    // as the ciphertext we can just square the scale and for rescaling the
-    // the plaintext before encryption
-    // TODO: be smarter about the scale. we should really look at the scale and
-    // what the next scale down would lead to and use that scale during encoding
-    BACKEND_LOG << "circumventing transparent ciphertext" << std::endl;
-    SEALPtxt temp = ptxt->rescale(
-        this->_internal_ctxt.scale() * this->_internal_ctxt.scale(),
-        _internal_ctxt.parms_id());
-    SEALCtxt* res = static_cast<SEALCtxt*>(_context.encrypt(&temp));
-    res->_name = _name + " * plaintext";
-    _context._evaluator->relinearize_inplace(res->sealCiphertext(),
-                                             _context.relinKeys());
-    _context._evaluator->rescale_to_next_inplace(res->sealCiphertext());
-    return res;
+  SEALPtxt* ptxt = dynamic_cast<SEALPtxt*>(other);
+  // if (ptxt->isAllZero()) {
+  //   // if we multiplied here the scale would the ciphertext scale *
+  //   plainscale
+  //   // butt since we specifically rescale the plaintext to be the same scale
+  //   // as the ciphertext we can just square the scale and for rescaling the
+  //   // the plaintext before encryption
+  //   // TODO: be smarter about the scale. we should really look at the scale
+  //   and
+  //   // what the next scale down would lead to and use that scale during
+  //   encoding BACKEND_LOG << "circumventing transparent ciphertext" <<
+  //   std::endl; SEALPtxt temp = ptxt->rescale(
+  //       this->_internal_ctxt.scale() * this->_internal_ctxt.scale(),
+  //       _internal_ctxt.parms_id());
+  //   SEALCtxt* res = static_cast<SEALCtxt*>(_context.encrypt(&temp));
+  //   res->_name = _name + " * plaintext";
+  //   _context._evaluator->relinearize_inplace(res->sealCiphertext(),
+  //                                            _context.relinKeys());
+  //   _context._evaluator->rescale_to_next_inplace(res->sealCiphertext());
+  //   return res;
+  // }
+
+  // TODO: shortcut evalution for special case 1
+  ptxt->mutex.lock();
+  if (!are_close(_internal_ctxt.scale(), ptxt->sealPlaintext().scale())) {
+    ptxt->scaleToMatchInPlace(*this);
+
   }
-  SEALPtxt rescaled = ptxt->scaleToMatch(*this);
-  // shortcut evalution for special case 0
+  ptxt->mutex.unlock();
+  BACKEND_LOG << "creating result ctxt" << std::endl;
   SEALCtxt* result =
       new SEALCtxt(_name + " * plaintext", _content_type, _context);
-  // TODO: shortcut evalution for special case 1
   try {
-    _context._evaluator->multiply_plain(
-        _internal_ctxt, rescaled.sealPlaintext(), result->sealCiphertext());
+    BACKEND_LOG << "running multiplication" << std::endl;
+    _context._evaluator->multiply_plain(_internal_ctxt, ptxt->sealPlaintext(),
+                                        result->sealCiphertext());
+    BACKEND_LOG << "running relin" << std::endl;
     _context._evaluator->relinearize_inplace(result->sealCiphertext(),
                                              _context.relinKeys());
+    BACKEND_LOG << "running rescale" << std::endl;
     _context._evaluator->rescale_to_next_inplace(result->sealCiphertext());
   } catch (const std::exception& e) {
-    logComputationError(_internal_ctxt, rescaled.sealPlaintext(),
+    logComputationError(_internal_ctxt, ptxt->sealPlaintext(),
                         "operator*(HEPtxt*)", __FILE__, __LINE__, &e);
+    delete result;
     throw;
   }
 
+  BACKEND_LOG << "mutlplication done" << std::endl;
   return result;
 }
 

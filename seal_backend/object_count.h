@@ -23,3 +23,4 @@ int get_ctxt_destructions();
 }  // namespace aluminum_shark
 
 #endif /* ALUMINUM_SHARK_SEAL_BACKEND_OBJECT_COUNT_H */
+
