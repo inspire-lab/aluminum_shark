@@ -63,8 +63,4 @@ const std::string& SEALBackend::name() { return BACKEND_NAME; }
 const std::string& SEALBackend::to_string() { return BACKEND_STRING; }
 const API_VERSION& SEALBackend::api_version() { return _version; }
 
-void SEALBackend::use_safe_masking(bool on_off) { safe_masking = on_off; }
-
-bool SEALBackend::use_safe_masking() const { return safe_masking; };
-
 }  // namespace aluminum_shark

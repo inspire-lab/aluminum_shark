@@ -547,30 +547,6 @@ HECtxt* SEALCtxt::multInPlace(double other) {
   return this;
 }
 
-// masking. a special kind of multiplication where the right hand side
-// contains only 0s and 1s
-HECtxt* SEALCtxt::mask(HEPtxt* other) {
-  HECtxt* result = this->deepCopy();
-  return result->maskInPlace(other);
-}
-
-HECtxt* SEALCtxt::maskInPlace(HEPtxt* other) {
-  SEALPtxt* ptxt = dynamic_cast<SEALPtxt*>(other);
-  // check if the masks only contains 0 and 1
-  if (_context._backend.use_safe_masking()) {
-    if (!ptxt->isValidMask()) {
-      BACKEND_LOG << "plaintext is not a valid mask. falling back to normal "
-                     "multiplication"
-                  << std::endl;
-      return this->multInPlace(other);
-    }
-  }
-  ptxt->rescaleInPalce(1, _internal_ctxt.parms_id());
-  _context._evaluator->multiply_plain_inplace(_internal_ctxt,
-                                              ptxt->sealPlaintext());
-  return this;
-}
-
 // Rotation
 HECtxt* SEALCtxt::rotInPlace(int steps) {
   _context._evaluator->rotate_vector_inplace(_internal_ctxt, steps,
