@@ -45,6 +45,7 @@ class SEALContext : public HEContext {
 
   virtual const HEBackend* getBackend() const override;
 
+
   virtual int numberOfSlots() const override;
 
   // Key management
@@ -54,14 +55,37 @@ class SEALContext : public HEContext {
   virtual void createPrivateKey() override;
 
   // save public key to file
-  virtual void savePublicKey(const std::string& file) override;
+  virtual void savePublicKey(const char* file) override;
   // save private key ot file
-  virtual void savePrivateKey(const std::string& file) override;
+  virtual void savePrivateKey(const char* file) override;
 
   // load public key from file
-  virtual void loadPublicKey(const std::string& file) override;
+  virtual void loadPublicKey(const char* file) override;
   // load private key from file
-  virtual void loadPrivateKey(const std::string& file) override;
+  virtual void loadPrivateKey(const char* file) override;
+
+  // saves the context
+  // virtual void SaveContext(const char* file) override;
+
+  virtual void SaveContextGK(const char* file) override;
+
+  virtual void SaveContextRK(const char* file) override;
+
+  // Saves encryption parameters 
+  virtual void SaveEncryptionParameters(const char* file) override;
+
+
+  // loads the context
+
+  // virtual void LoadContext()
+
+  virtual void LoadContextGK(const char* file) override;
+
+  virtual void LoadContextRK(const char* file) override;
+
+  // Saves encryption parameters 
+  virtual void LoadEncryptionParameters(const char* file) override;
+  
 
   // Ciphertext related
 
@@ -104,23 +128,38 @@ class SEALContext : public HEContext {
 
   // SEAL specific API
   SEALContext(seal::SEALContext context, const SEALBackend& backend,
-              double scale = -1);
+              seal::EncryptionParameters encry_param,double scale = -1);
+              
 
   template <class T>
   std::vector<T> decode(const SEALPtxt& ptxt) const;
 
   const seal::Evaluator& evaluator() const;
-
   const seal::RelinKeys& relinKeys() const;
   const seal::GaloisKeys& galoisKeys() const;
+  const seal::SEALContext& Context() const;
+
+  //setter for RelinKeys
+  void SetRelinKeys(seal::RelinKeys RKeys) {
+  _relin_keys = RKeys;
+  }
+
+  //setter for GalosiKeys
+  void SetGalosiKeys(seal::GaloisKeys GKeys){
+  _gal_keys = GKeys;
+  }
+
 
  private:
   friend class SEALPtxt;
   friend class SEALCtxt;
   // SEAL specific API
   const seal::SEALContext _internal_context;
+  seal::EncryptionParameters param_res;
+  
   const SEALBackend& _backend;
   const double _scale;
+  
   std::unique_ptr<seal::BatchEncoder> _batchencoder;
   std::unique_ptr<seal::CKKSEncoder> _ckksencoder;
   seal::KeyGenerator _keygen;

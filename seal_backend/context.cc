@@ -1,14 +1,16 @@
 #include "context.h"
-
 #include <functional>
 #include <memory>
 #include <string>
-
 #include "backend_logging.h"
 #include "ctxt.h"
 #include "ptxt.h"
 #include "seal/seal.h"
 #include "utils/utils.h"
+#include <iostream>
+#include <fstream>
+#include "seal/encryptionparams.h"
+
 
 namespace {
 const std::string BACKEND_NAME = "SEAL Backend";
@@ -50,12 +52,16 @@ CONTENT_TYPE type_to_content_type<double>() {
 }
 
 SEALContext::SEALContext(seal::SEALContext context, const SEALBackend& backend,
-                         double scale)
+                         seal::EncryptionParameters encry_param,double scale)
     : _internal_context(context),
       _backend(backend),
+      param_res(encry_param),
+      // _relin_keys(relin_keys),
+      // _gal_keys(gal_keys),
       _scale(std::pow(2, scale)),
       _keygen(context),
       _sec_key(_keygen.secret_key()) {
+
   _is_ckks = _internal_context.first_context_data()->parms().scheme() ==
              seal::scheme_type::ckks;
   _is_bfv = _internal_context.first_context_data()->parms().scheme() ==
@@ -72,6 +78,10 @@ SEALContext::SEALContext(seal::SEALContext context, const SEALBackend& backend,
     _slot_count = _ckksencoder->slot_count();
   }
   auto& params = _internal_context.first_context_data()->parms();
+
+  
+
+
   std::stringstream ss;
   ss << "SEAL ";
   if (is_bfv()) {
@@ -106,6 +116,10 @@ int SEALContext::numberOfSlots() const { return _slot_count; }
 const seal::Evaluator& SEALContext::evaluator() const { return *_evaluator; }
 const seal::RelinKeys& SEALContext::relinKeys() const { return _relin_keys; }
 const seal::GaloisKeys& SEALContext::galoisKeys() const { return _gal_keys; }
+const seal::SEALContext& SEALContext::Context() const { return _internal_context; }
+
+// const seal::EncryptionParameters& SEALContext::encryptionparameters() const { return param_res; }
+
 // Key management
 
 // the pub key gets created together with the secret key. so we create all the
@@ -130,21 +144,84 @@ void SEALContext::createPrivateKey() {
 }
 
 // save public key to file
-void SEALContext::savePublicKey(const std::string& file) {
-  BACKEND_LOG << "saving keys not implemented yet" << std::endl;
+void SEALContext::savePublicKey(const char* file) {
+  BACKEND_LOG << "saving public key" << std::endl;
+  std::ofstream fileStream(file);
+  _pub_key.save(fileStream);
+  BACKEND_LOG << "public key saved" << std::endl;
 }
-// save private key ot file
-void SEALContext::savePrivateKey(const std::string& file) {
-  BACKEND_LOG << "saving keys not implemented yet" << std::endl;
+// save private key to file
+void SEALContext::savePrivateKey(const char* file) {
+  BACKEND_LOG << "saving private key" << std::endl;
+  std::ofstream fileStream(file);
+  _sec_key.save(fileStream);
+  BACKEND_LOG << "private key saved" << std::endl;
 }
 
 // load public key from file
-void SEALContext::loadPublicKey(const std::string& file) {
-  BACKEND_LOG << "loading keys not implemented yet" << std::endl;
+// void SEALContext::loadPublicKey(const std::string& file) {
+void SEALContext::loadPublicKey(const char* file) {
+  BACKEND_LOG << "loading public key" << std::endl;
+    std::ifstream fileStream(file);
+   _pub_key.load(_internal_context,fileStream);
+  BACKEND_LOG << "public key loaded" << std::endl;
 }
-// load private key from file
-void SEALContext::loadPrivateKey(const std::string& file) {
-  BACKEND_LOG << "loading keys not implemented yet" << std::endl;
+// load private key from files
+// void SEALContext::loadPrivateKey(const std::string& file) {
+void SEALContext::loadPrivateKey(const char* file) {
+  BACKEND_LOG << "loading private key" << std::endl;
+    std::ifstream fileStream(file);
+   _sec_key.load(_internal_context,fileStream);
+  BACKEND_LOG << "private key loaded" << std::endl;
+}
+
+void SEALContext::SaveContextGK(const char* file) {
+  BACKEND_LOG << "saving context GK " << std::endl;
+  std::ofstream fileStream(file);
+  _gal_keys.save(fileStream);
+  // _relin_keys.save(fileStream);
+  BACKEND_LOG << "context saved" << std::endl;
+}
+
+void SEALContext::SaveContextRK(const char* file) {
+  BACKEND_LOG << "saving context RK " << std::endl;
+  std::ofstream fileStream(file);
+  _relin_keys.save(fileStream);
+  BACKEND_LOG << "context saved" << std::endl;
+}
+
+void SEALContext::SaveEncryptionParameters(const char* file) {
+  BACKEND_LOG << "saving encryption parameters " << std::endl;
+  std::ofstream fileStream(file);
+  param_res.save(fileStream);
+  BACKEND_LOG << "context saved" << std::endl;
+}
+
+// void SEALContext::LoadContext(const char* file) {
+//   BACKEND_LOG << "loading context GK " << std::endl;
+//   BACKEND_LOG << "context loaded" << std::endl;
+// }
+
+void SEALContext::LoadContextGK(const char* file) {
+  BACKEND_LOG << "loading context GK " << std::endl;
+  std::ifstream fileStream(file);
+  _gal_keys.load(_internal_context,fileStream);
+  // _relin_keys.save(fileStream);
+  BACKEND_LOG << "context loaded" << std::endl;
+}
+
+void SEALContext::LoadContextRK(const char* file) {
+  BACKEND_LOG << "loading context RK " << std::endl;
+  std::ifstream fileStream(file);
+  _relin_keys.load(_internal_context,fileStream);
+  BACKEND_LOG << "context loaded" << std::endl;
+}
+
+void SEALContext::LoadEncryptionParameters(const char* file) {
+  BACKEND_LOG << "loading encryption parameters " << std::endl;
+  std::ifstream fileStream(file);
+  param_res.load(fileStream);
+  BACKEND_LOG << "context loaded" << std::endl;
 }
 
 // Ciphertext related

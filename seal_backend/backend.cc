@@ -1,17 +1,19 @@
 
 #include "backend.h"
-
 #include "context.h"
 #include "seal/seal.h"
+#include<string.h>
+#include <iostream>
+#include <fstream>
 
 // this is the entry point to the backend
 extern "C" {
 
-std::shared_ptr<aluminum_shark::HEBackend> createBackend() {
-  std::shared_ptr<aluminum_shark::HEBackend> ptr(
-      new aluminum_shark::SEALBackend());
-  return ptr;
-}
+// std::shared_ptr<aluminum_shark::HEBackend> createBackend() {
+//   std::shared_ptr<aluminum_shark::HEBackend> ptr(
+//       new aluminum_shark::SEALBackend());
+//   return ptr;
+// }
 }  // extern "C"
 
 namespace {
@@ -41,7 +43,7 @@ HEContext* SEALBackend::createContextBFV(size_t poly_modulus_degree,
         seal::CoeffModulus::Create(poly_modulus_degree, coeff_modulus));
   }
   params.set_plain_modulus(plain_modulus);
-  SEALContext* context_ptr = new SEALContext(seal::SEALContext(params), *this);
+  SEALContext* context_ptr = new SEALContext(seal::SEALContext(params), *this,params);
   return context_ptr;
 }
 
@@ -55,12 +57,39 @@ HEContext* SEALBackend::createContextCKKS(size_t poly_modulus_degree,
       seal::CoeffModulus::Create(poly_modulus_degree, coeff_modulus));
 
   SEALContext* context_ptr =
-      new SEALContext(seal::SEALContext(params), *this, scale);
+      new SEALContext(seal::SEALContext(params), *this,params, scale);
   return context_ptr;
 }
+
+// HEContext* SEALBackend::loadContext(const std::string path,double scale)
+// {
+
+// // #loading of Encryption Parameters
+//  seal::EncryptionParameters params;//creation of empty EP object
+//  std::ifstream fileStream(path);
+//  params.load(fileStream);
+// //  seal::SEALContext context(params);
+
+// SEALContext* cont_ptr =
+//       new SEALContext(seal::SEALContext(params), *this,params,scale);  //creation of context object
+
+// // loading of Relin keys
+//    seal::RelinKeys relinKeys;  
+//    relinKeys.load(seal::SEALContext(params),fileStream);
+      
+// // loading of Galva keys
+//    seal::GaloisKeys galoisKeys;
+//    galoisKeys.load(seal::SEALContext(params),fileStream);
+
+//   return cont_ptr; 
+      
+//  }
 
 const std::string& SEALBackend::name() { return BACKEND_NAME; }
 const std::string& SEALBackend::to_string() { return BACKEND_STRING; }
 const API_VERSION& SEALBackend::api_version() { return _version; }
+
+
+
 
 }  // namespace aluminum_shark

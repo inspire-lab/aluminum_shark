@@ -35,9 +35,12 @@ tf_lib_path = os.path.join(tf_dir, 'python', '_pywrap_tensorflow_internal.so')
 if not os.path.exists(tf_lib_path):
   raise Exception('Unable to find TensorFlow shared library ' + tf_lib_path)
 
+
 # load the library and functions
 tf_lib = ctypes.CDLL(tf_lib_path)
 AS_LOG("Wrapped TensorFlow library: " + tf_lib_path)
+
+
 
 ############################
 # backend functions        #
