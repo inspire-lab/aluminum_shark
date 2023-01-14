@@ -28,6 +28,9 @@ class SEALBackend : public HEBackend {
                                        const std::vector<int>& coeff_modulus,
                                        double scale) override;
 
+  virtual HEContext* createContextCKKS(
+      std::vector<aluminum_shark_Argument> arguments) override;
+
   virtual const std::string& name() override;
   virtual const std::string& to_string() override;
   virtual const API_VERSION& api_version() override;
