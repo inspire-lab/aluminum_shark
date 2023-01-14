@@ -1,5 +1,5 @@
-#ifndef ALUMINUM_SHARK_SEAL_BACKEND_OBJECT_COUNT_H
-#define ALUMINUM_SHARK_SEAL_BACKEND_OBJECT_COUNT_H
+#ifndef ALUMINUM_SHARK_COMMON_OBJECT_COUNT_H
+#define ALUMINUM_SHARK_COMMON_OBJECT_COUNT_H
 
 namespace aluminum_shark {
 
@@ -22,4 +22,4 @@ int get_ctxt_destructions();
 
 }  // namespace aluminum_shark
 
-#endif /* ALUMINUM_SHARK_SEAL_BACKEND_OBJECT_COUNT_H */
+#endif /* ALUMINUM_SHARK_COMMON_OBJECT_COUNT_H */
