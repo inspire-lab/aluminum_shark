@@ -1,12 +1,11 @@
-from unittest import result
 import uuid
-import warnings
 import os
 import ctypes
 import tensorflow as tf
 from typing import Union, List, Iterable
 from inspect import currentframe, stack
 import numpy as np
+from aluminum_shark import config
 
 
 def AS_LOG(*args, hex_pointers=True, **kwargs):
@@ -31,7 +30,7 @@ AS_LOG('default backend: ', __DEFAULT_BACKEND__)
 
 # get the tensorflow shared library path
 tf_dir = tf.__file__[:-12]  # strip away file name '__init__.py'
-tf_lib_path = os.path.join(tf_dir, 'python', '_pywrap_tensorflow_internal.so')
+tf_lib_path = config.PY_HANDLE_SHARED_LIB
 if not os.path.exists(tf_lib_path):
   raise Exception('Unable to find TensorFlow shared library ' + tf_lib_path)
 
@@ -355,14 +354,16 @@ class ObjectCleaner(object):
     # super().__init__()
     self.objects = set()
     self.parent = parent
+    if parent is not None:
+      parent.register_object(self)
 
   def register_object(self, object) -> None:
     """
     Register `object` to be destroyed before `self` is destroyed.
     """
     self.objects.add(object)
-    if self.parent is not None:
-      self.parent.register(object)
+    # if self.parent is not None:
+    #   self.parent.register(object)
 
   def remove_object(self, object) -> None:
     """
@@ -372,15 +373,16 @@ class ObjectCleaner(object):
     if object in self.objects:
       self.objects.remove(object)
     if self.parent is not None:
-      self.parent.remove(object)
+      self.parent.remove_object(object)
 
   def destroy(self) -> None:
     """
     Calls destroy on all registerd objects and removes itself from parent.
     """
     if self.parent is not None:
-      self.parent.remove(self)
-    for o in self.objects:
+      self.parent.remove_object(self)
+    while self.objects:
+      o = self.objects.pop()
       o.destroy()
 
 
@@ -495,11 +497,15 @@ class CipherText(ObjectCleaner):
   A ciphertext object. It is valid as long as its `_handle` is not `None`. 
   """
 
-  def __init__(self, handle: ctypes.c_void_p, context: "Context",
-               shape: Iterable[int]) -> None:
+  def __init__(self,
+               handle: ctypes.c_void_p,
+               context: "Context",
+               shape: Iterable[int],
+               layout: str = None) -> None:
     super().__init__(parent=context)
     self.__handle = handle
     self.__context = context
+    self.layout = layout
 
   @property
   def _handle(self):
@@ -615,7 +621,7 @@ class Context(ObjectCleaner):
     print(ptxt_ptr)
 
     # convert name
-    name_arg = ctypes.c_char_p(str.encode(name))
+    name_arg = name.encode('utf-8')
 
     # create the layout
     shape_ptr = (ctypes.c_size_t * len(shape))(*shape)
@@ -625,7 +631,10 @@ class Context(ObjectCleaner):
 
     ctxt_handle = __enc_func(ptxt_ptr, len(ptxt), name_arg, shape_ptr,
                              shape_size, layout_c, self.__handle)
-    return CipherText(handle=ctxt_handle, context=self, shape=shape)
+    return CipherText(handle=ctxt_handle,
+                      context=self,
+                      shape=shape,
+                      layout=layout)
 
   def decrypt_long(self, ctxt: CipherText) -> List[int]:
     """

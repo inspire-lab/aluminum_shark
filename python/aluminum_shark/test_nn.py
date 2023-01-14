@@ -23,9 +23,10 @@ def create_model():
   model.add(
       tf.keras.layers.Dense(3, activation=tf.square,
                             input_shape=x_in.shape[1:]))
+  # model.add(tf.keras.layers.BatchNormalization())
 
   w, b = model.layers[0].get_weights()
-  # print(w.shape)
+  # # print(w.shape)
   model.layers[0].set_weights([
       np.arange(w.size).reshape(w.shape) / w.size,
       np.arange(b.size).reshape(b.shape) / b.size

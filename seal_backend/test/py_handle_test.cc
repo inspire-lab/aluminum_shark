@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <stdlib.h>
 
+#include <cmath>
 #include <memory>
 #include <string>
 #include <vector>
@@ -10,9 +11,6 @@
 #include "tensorflow/compiler/plugin/aluminum_shark/logging.h"
 #include "tensorflow/compiler/plugin/aluminum_shark/ptxt.h"
 #include "tensorflow/compiler/plugin/aluminum_shark/python/python_handle.h"
-
-// TODO RP: this file broke with indroduction of the dependencies in layout to
-// some tensorflow function. need to figure out how to fix this
 
 using namespace aluminum_shark;
 
@@ -45,13 +43,20 @@ int main(int argc, char const* argv[]) {
 
   // encrypt
   // set up inputs
-  double inputs1[] = {2, 1, 34, 45};
-  size_t shape[] = {2, 2};
-  void* ctxt_0 = aluminum_shark_encryptDouble(inputs1, 4, "x", shape, 2,
-                                              "simple", golabl_context);
-  double inputs2[] = {5, 4, 5, 10};
-  void* ctxt_1 = aluminum_shark_encryptDouble(inputs2, 4, "y", shape, 2,
-                                              "simple", golabl_context);
+  double inputs1[50];
+  for (size_t i = 0; i < 50; i++) {
+    inputs1[i] = 50.0;
+  }
+  size_t shape[] = {10, 5};
+  void* ctxt_0 = aluminum_shark_encryptDouble(inputs1, 50, "x", shape, 2,
+                                              "batch", golabl_context);
+  double inputs2[50];
+  for (size_t i = 0; i < 50; i++) {
+    inputs2[50 - i] = 2 * i / 50.0;
+  }
+  size_t shape2[] = {10, 5};
+  void* ctxt_1 = aluminum_shark_encryptDouble(inputs2, 50, "y", shape2, 2,
+                                              "batch", golabl_context);
 
   // use the global vector so when can use them inside the lambda
   global_ctxts.push_back(ctxt_0);
@@ -77,7 +82,8 @@ int main(int argc, char const* argv[]) {
         for (size_t i = 0; i < no_ctxt; ++i) {
           global_results.push_back(((void**)result_ctxts)[i]);
         }
-      }, "simple");
+      },
+      "batch");
 
   // check that we can retrieve the ciphertexts from the computation handle
   aluminum_shark_Computation* computation =
@@ -128,7 +134,7 @@ int main(int argc, char const* argv[]) {
   for (size_t i = 0; i < size; i++) {
     std::cout << "decrypted: " << decrypted[i]
               << ", expected: " << inputs1[i] * inputs2[i] << std::endl;
-    assert(decrypted[i] - (inputs1[i] * inputs2[i]) < tolarance);
+    assert(std::fabs(decrypted[i] - (inputs1[i] * inputs2[i])) < tolarance);
   }
   // clean up
   delete[] shape0;
@@ -157,7 +163,7 @@ int main(int argc, char const* argv[]) {
   for (size_t i = 0; i < size; i++) {
     std::cout << "decrypted: " << decrypted[i]
               << ", expected: " << inputs1[i] + inputs2[i] << std::endl;
-    assert(decrypted[i] - (inputs1[i] + inputs2[i]) < tolarance);
+    assert(std::fabs(decrypted[i] - (inputs1[i] + inputs2[i])) < tolarance);
   }
   std::cout << std::endl;
   // clean up
@@ -172,5 +178,5 @@ int main(int argc, char const* argv[]) {
   aluminum_shark_DestroyContext(golabl_context);
   aluminum_shark_destroyBackend(backend);
 
-  // return 0;
+  return 0;
 }

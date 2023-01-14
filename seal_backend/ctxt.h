@@ -11,7 +11,7 @@ namespace aluminum_shark {
 class SEALCtxt : public HECtxt {
  public:
   // Plugin API
-  virtual ~SEALCtxt(){};
+  virtual ~SEALCtxt() { count_ctxt(-1); };
 
   virtual std::string to_string() const override;
 
@@ -81,7 +81,13 @@ class SEALCtxt : public HECtxt {
   const SEALContext& _context;
   seal::Ciphertext _internal_ctxt;
 
-  SEALCtxt(const SEALCtxt& other) = default;
+  SEALCtxt(const SEALCtxt& other)
+      : _name(other._name),
+        _content_type(other._content_type),
+        _context(other._context),
+        _internal_ctxt(other._internal_ctxt) {
+    count_ctxt(1);
+  };
 };
 
 }  // namespace aluminum_shark
