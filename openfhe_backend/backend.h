@@ -1,10 +1,11 @@
-#ifndef ALUMINUM_SHARK_SEAL_BACKEND_BACKEND_H
-#define ALUMINUM_SHARK_SEAL_BACKEND_BACKEND_H
+#ifndef ALUMINUM_SHARK_OPENFHE_BACKEND_BACKEND_H
+#define ALUMINUM_SHARK_OPENFHE_BACKEND_BACKEND_H
+
 #include <memory>
 #include <string>
 
 #include "he_backend/he_backend.h"
-#include "seal/seal.h"
+#include "openfhe.h"
 
 // this is the entry point to the backend
 extern "C" {
@@ -12,13 +13,12 @@ extern "C" {
 std::shared_ptr<aluminum_shark::HEBackend> createBackend();
 
 }  // extern "C"
-
 namespace aluminum_shark {
 
-class SEALBackend : public HEBackend {
+class OpenFHEBackend : public HEBackend {
  public:
-  SEALBackend() : _version(API_VERSION()){};
-  virtual ~SEALBackend(){};
+  OpenFHEBackend() : version_(API_VERSION()){};
+  virtual ~OpenFHEBackend(){};
 
   // Create an HEContect
   virtual HEContext* createContextBFV(size_t poly_modulus_degree,
@@ -36,9 +36,9 @@ class SEALBackend : public HEBackend {
   virtual const API_VERSION& api_version() override;
 
  private:
-  const API_VERSION _version;
+  const API_VERSION version_;
 };
 
 }  // namespace aluminum_shark
 
-#endif /* ALUMINUM_SHARK_SEAL_BACKEND_BACKEND_H */
+#endif /* ALUMINUM_SHARK_OPENFHE_BACKEND_BACKEND_H */

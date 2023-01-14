@@ -2,6 +2,8 @@
 #include "backend.h"
 
 #include "context.h"
+#include "logging.h"
+#include "python/arg_utils.h"
 #include "seal/seal.h"
 
 // this is the entry point to the backend
@@ -57,6 +59,50 @@ HEContext* SEALBackend::createContextCKKS(size_t poly_modulus_degree,
   SEALContext* context_ptr =
       new SEALContext(seal::SEALContext(params), *this, scale);
   return context_ptr;
+}
+
+HEContext* SEALBackend::createContextCKKS(
+    std::vector<aluminum_shark_Argument> arguments) {
+  AS_LOG_INFO << "Creating Context. Arguments\n"
+              << args_to_string(arguments) << std::endl;
+
+  size_t poly_modulus_degree = 0;
+  std::vector<int> coeff_modulus;
+  double scale = -1;
+
+  for (const aluminum_shark_Argument& arg : arguments) {
+    const char* name = arg.name;
+    AS_LOG_DEBUG << "Processing argument: " << name << " type: " << arg.type
+                 << " is_ array: " << arg.is_array << std::endl;
+    if (std::strcmp(name, "poly_modulus_degree") == 0) {
+      if (arg.type != 0 || arg.array_) {
+        AS_LOG_CRITICAL << name << " needs to be scalar int" << std::endl;
+      }
+      poly_modulus_degree = arg.int_;
+      continue;
+    } else if (std::strcmp(name, "scale") == 0) {
+      if (arg.type != 1 || arg.array_) {
+        AS_LOG_CRITICAL << name << " needs to be scalar doulbe" << std::endl;
+      }
+      scale = arg.double_;
+      continue;
+    } else if (std::strcmp(name, "coeff_modulus") == 0) {
+      if (arg.type != 0 || !arg.array_) {
+        AS_LOG_CRITICAL << name << " needs to be int array" << std::endl;
+      }
+      long* arr = reinterpret_cast<long*>(arg.array_);
+      for (size_t i = 0; i < arg.size_; i++) {
+        coeff_modulus.push_back(arr[i]);
+      }
+      continue;
+    }
+  }
+
+  if (poly_modulus_degree == 0 || coeff_modulus.size() == 0 || scale == -1) {
+    AS_LOG_CRITICAL << "missing parameter" << std::endl;
+    throw std::runtime_error("missing parameter");
+  }
+  return createContextCKKS(poly_modulus_degree, coeff_modulus, scale);
 }
 
 const std::string& SEALBackend::name() { return BACKEND_NAME; }

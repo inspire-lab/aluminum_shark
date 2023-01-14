@@ -34,7 +34,7 @@ bool log();
   (::aluminum_shark::seal_backend::log()               \
        ? std::cout                                     \
        : ::aluminum_shark::seal_backend::nullstream()) \
-      << "SEAL Backend: [" << FILE << ":" << LINE << "] "
+      << "Backend: [" << FILE << ":" << LINE << "] "
 
 #define BACKEND_LOG BACKEND_LOG_FILE_LINE(__FILE__, __LINE__)
 
