@@ -12,8 +12,10 @@ extern "C" {
 std::shared_ptr<aluminum_shark::HEBackend> createBackend() {
   std::shared_ptr<aluminum_shark::HEBackend> ptr(
       new aluminum_shark::SEALBackend());
+  aluminum_shark::set_log_prefix("SEAL Backend");
   return ptr;
 }
+
 }  // extern "C"
 
 namespace {
@@ -108,5 +110,9 @@ HEContext* SEALBackend::createContextCKKS(
 const std::string& SEALBackend::name() { return BACKEND_NAME; }
 const std::string& SEALBackend::to_string() { return BACKEND_STRING; }
 const API_VERSION& SEALBackend::api_version() { return _version; }
+
+void SEALBackend::set_log_level(int level) {
+  ::aluminum_shark::set_log_level(level);
+}
 
 }  // namespace aluminum_shark

@@ -35,6 +35,8 @@ class SEALBackend : public HEBackend {
   virtual const std::string& to_string() override;
   virtual const API_VERSION& api_version() override;
 
+  virtual void set_log_level(int level) override;
+
  private:
   const API_VERSION _version;
 };
