@@ -100,6 +100,8 @@ const std::string& OpenFHEBackend::name() { return BACKEND_NAME; }
 const std::string& OpenFHEBackend::to_string() { return BACKEND_STRING; }
 const API_VERSION& OpenFHEBackend::api_version() { return version_; }
 
-OpenFHEBackend::set_log_level(int level) { ::aluminum_shark::set_log_level(0); }
+void OpenFHEBackend::set_log_level(int level) {
+  ::aluminum_shark::set_log_level(0);
+}
 
 }  // namespace aluminum_shark
