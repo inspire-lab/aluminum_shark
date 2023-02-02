@@ -1,8 +1,8 @@
 from setuptools import setup
 from setuptools import find_packages
 
-with open("README.md", "r") as fh:
-  long_description = fh.read()
+# with open("README.md", "r") as fh:
+#   long_description = fh.read()
 
 # TODO: dependency handling
 setup(
@@ -10,7 +10,7 @@ setup(
     version='0.1.0',
     description=
     'Privacy Preserving Neural Networks with TensorFlow und Homomorphic Encryption',
-    long_description=long_description,
+    long_description="long_description",
     long_description_content_type='text/markdown',
     author='Robert Podschwadt',
     author_email='robertpodschwadt@gmail.com',
