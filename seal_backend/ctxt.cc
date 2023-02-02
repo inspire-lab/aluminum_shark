@@ -73,30 +73,54 @@ HECtxt* SEALCtxt::operator+(const HECtxt* other) {
 HECtxt* SEALCtxt::addInPlace(const HECtxt* other) {
   const SEALCtxt* other_ctxt = dynamic_cast<const SEALCtxt*>(other);
   try {
-    BACKEND_LOG << "adding. lhs scale " << std::log2(_internal_ctxt.scale())
-                << " rhs scale "
-                << std::log2(other_ctxt->sealCiphertext().scale()) << std::endl;
-    BACKEND_LOG << "\t lhs params index: "
-                << _context._internal_context
-                       .get_context_data(_internal_ctxt.parms_id())
-                       ->chain_index()
-                << " \n\t rhs params index "
-                << _context._internal_context
-                       .get_context_data(
-                           other_ctxt->sealCiphertext().parms_id())
-                       ->chain_index()
-                << std::endl;
+    AS_LOG_DEBUG << "adding. lhs scale " << std::log2(_internal_ctxt.scale())
+                 << " rhs scale "
+                 << std::log2(other_ctxt->sealCiphertext().scale())
+                 << std::endl;
+    AS_LOG_DEBUG << "\t lhs params index: "
+                 << _context._internal_context
+                        .get_context_data(_internal_ctxt.parms_id())
+                        ->chain_index()
+                 << " \n\t rhs params index "
+                 << _context._internal_context
+                        .get_context_data(
+                            other_ctxt->sealCiphertext().parms_id())
+                        ->chain_index()
+                 << std::endl;
     if (_internal_ctxt.parms_id() != other_ctxt->sealCiphertext().parms_id()) {
       auto context_data_lhs = _context._internal_context.get_context_data(
           _internal_ctxt.parms_id());
       auto context_data_rhs = _context._internal_context.get_context_data(
           other_ctxt->sealCiphertext().parms_id());
+
       // other has a higher modulus. resacle it down and add
       if (context_data_lhs->chain_index() < context_data_rhs->chain_index()) {
-        seal::Ciphertext rescaled_ctxt = other_ctxt->sealCiphertext();
-        BACKEND_LOG << "parameters mismatch. rescaling other" << std::endl;
-        _context._evaluator->mod_switch_to_inplace(rescaled_ctxt,
-                                                   _internal_ctxt.parms_id());
+        AS_LOG_DEBUG << "parameters mismatch. rescaling other" << std::endl;
+        seal::Ciphertext rescaled_ctxt;
+        _context._evaluator->mod_switch_to(other_ctxt->_internal_ctxt,
+                                           _internal_ctxt.parms_id(),
+                                           rescaled_ctxt);
+
+        std::stringstream sslhs;
+        for (auto i : _internal_ctxt.parms_id()) {
+          sslhs << i << ", ";
+        }
+        std::stringstream ssrhs;
+        for (auto i : rescaled_ctxt.parms_id()) {
+          ssrhs << i << ", ";
+        }
+
+        AS_LOG_DEBUG << "\t lhs params index: "
+                     << _context._internal_context
+                            .get_context_data(_internal_ctxt.parms_id())
+                            ->chain_index()
+                     << " parms_id: [ " << sslhs.str()
+                     << "] \n\t rhs params index "
+                     << _context._internal_context
+                            .get_context_data(rescaled_ctxt.parms_id())
+                            ->chain_index()
+                     << "parms_id: [ " << sslhs.str() << "]" << std::endl;
+        _internal_ctxt.scale() = other_ctxt->sealCiphertext().scale();
         _context._evaluator->add_inplace(_internal_ctxt, rescaled_ctxt);
         return this;
       }
@@ -104,15 +128,15 @@ HECtxt* SEALCtxt::addInPlace(const HECtxt* other) {
       double last_prime = static_cast<double>(
           context_data_lhs->parms().coeff_modulus().back().value());
 
-      BACKEND_LOG << "last prime " << last_prime << " ("
-                  << std::log2(last_prime) << " bits)" << std::endl;
+      AS_LOG_DEBUG << "last prime " << last_prime << " ("
+                   << std::log2(last_prime) << " bits)" << std::endl;
 
       // x * s / l = y
       // s = y / x * l
       double temp_scale = other_ctxt->sealCiphertext().scale() /
                           _internal_ctxt.scale() * last_prime;
-      BACKEND_LOG << "temp ptxt scale: " << temp_scale << " ("
-                  << std::log2(temp_scale) << " bits)" << std::endl;
+      AS_LOG_DEBUG << "temp ptxt scale: " << temp_scale << " ("
+                   << std::log2(temp_scale) << " bits)" << std::endl;
       {
         seal::Plaintext temp_ptxt;
         _context._ckksencoder->encode(1, _internal_ctxt.parms_id(), temp_scale,
@@ -121,14 +145,14 @@ HECtxt* SEALCtxt::addInPlace(const HECtxt* other) {
       }
 
       // this has a higher modulus. resacle it down and add
-      BACKEND_LOG << "parameters mismatch. rescaling this from "
-                  << _internal_ctxt.scale() << std::endl;
+      AS_LOG_DEBUG << "parameters mismatch. rescaling this from "
+                   << _internal_ctxt.scale() << std::endl;
       _context._evaluator->rescale_to_next_inplace(_internal_ctxt);
-      BACKEND_LOG << "rescaling to " << _internal_ctxt.scale() << std::endl;
+      AS_LOG_DEBUG << "rescaling to " << _internal_ctxt.scale() << std::endl;
       // _context._evaluator->mod_switch_to_inplace(
       //     _internal_ctxt, other_ctxt->sealCiphertext().parms_id());
-      BACKEND_LOG << "lhs scale " << _internal_ctxt.scale() << " rhs scale "
-                  << other_ctxt->sealCiphertext().scale() << std::endl;
+      AS_LOG_DEBUG << "lhs scale " << _internal_ctxt.scale() << " rhs scale "
+                   << other_ctxt->sealCiphertext().scale() << std::endl;
     }
     // _internal_ctxt.scale() = other_ctxt->sealCiphertext().scale();
     _context._evaluator->add_inplace(_internal_ctxt,
@@ -136,7 +160,8 @@ HECtxt* SEALCtxt::addInPlace(const HECtxt* other) {
   } catch (const std::exception& e) {
     std::cout << e.what() << std::endl;
     logComputationError(_internal_ctxt, other_ctxt->sealCiphertext(),
-                        "addInplace(HECtxt*)", __FILE__, __LINE__, &e);
+                        "addInplace(HECtxt*)", __FILE__, __LINE__, &e,
+                        &_context._internal_context);
     throw;
   }
   return this;
@@ -200,15 +225,34 @@ HECtxt* SEALCtxt::operator*(const HECtxt* other) {
 HECtxt* SEALCtxt::multInPlace(const HECtxt* other) {
   const SEALCtxt* other_ctxt = dynamic_cast<const SEALCtxt*>(other);
   try {
-    _context._evaluator->multiply_inplace(_internal_ctxt,
-                                          other_ctxt->sealCiphertext());
+    auto& lhs_parms = _internal_ctxt.parms_id();
+    auto& rhs_parms = other_ctxt->sealCiphertext().parms_id();
+    if (lhs_parms != rhs_parms) {
+      seal::Ciphertext ctxt;
+      auto& s_context = _context._internal_context;
+      // mod switch this
+      if (s_context.get_context_data(lhs_parms)->chain_index() >
+          s_context.get_context_data(rhs_parms)->chain_index()) {
+        _context._evaluator->mod_switch_to_inplace(_internal_ctxt, rhs_parms);
+        _context._evaluator->multiply_inplace(_internal_ctxt,
+                                              other_ctxt->sealCiphertext());
+      } else {
+        ctxt = other_ctxt->sealCiphertext();
+        _context._evaluator->mod_switch_to_inplace(ctxt, lhs_parms);
+        _context._evaluator->multiply_inplace(_internal_ctxt, ctxt);
+      }
+    } else {
+      _context._evaluator->multiply_inplace(_internal_ctxt,
+                                            other_ctxt->sealCiphertext());
+    }
     _context._evaluator->relinearize_inplace(_internal_ctxt,
                                              _context.relinKeys());
     _context._evaluator->rescale_to_next_inplace(_internal_ctxt);
 
   } catch (const std::exception& e) {
     logComputationError(_internal_ctxt, other_ctxt->sealCiphertext(),
-                        "multInPlace(HECtxt*)", __FILE__, __LINE__, &e);
+                        "multInPlace(HECtxt*)", __FILE__, __LINE__, &e,
+                        &_context._internal_context);
     throw;
   }
   return this;
@@ -443,7 +487,8 @@ HECtxt* SEALCtxt::operator*(HEPtxt* other) {
   // if (ptxt->isAllZero()) {
   //   // if we multiplied here the scale would the ciphertext scale *
   //   plainscale
-  //   // butt since we specifically rescale the plaintext to be the same scale
+  //   // butt since we specifically rescale the plaintext to be the same
+  //   scale
   //   // as the ciphertext we can just square the scale and for rescaling the
   //   // the plaintext before encryption
   //   // TODO: be smarter about the scale. we should really look at the scale
@@ -465,7 +510,6 @@ HECtxt* SEALCtxt::operator*(HEPtxt* other) {
   ptxt->mutex.lock();
   if (!are_close(_internal_ctxt.scale(), ptxt->sealPlaintext().scale())) {
     ptxt->scaleToMatchInPlace(*this);
-
   }
   ptxt->mutex.unlock();
   BACKEND_LOG << "creating result ctxt" << std::endl;
@@ -511,6 +555,7 @@ HECtxt* SEALCtxt::multInPlace(HEPtxt* other) {
     _context._evaluator->rescale_to_next_inplace(_internal_ctxt);
     return this;
   }
+
   SEALPtxt rescaled = ptxt->scaleToMatch(*this);
   try {
     _context._evaluator->multiply_plain_inplace(_internal_ctxt,
