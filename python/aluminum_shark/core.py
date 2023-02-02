@@ -341,6 +341,11 @@ enable_logging_func.argtypes = [ctypes.c_bool]
 set_log_level_func = tf_lib.aluminum_shark_SetLogLevel
 set_log_level_func.argtypes = [ctypes.c_int]
 
+# sets the backend log level
+# void aluminum_shark_SetBackendLogLevel(int level);
+set_backend_log_level_func = tf_lib.aluminum_shark_SetBackendLogLevel
+set_backend_log_level_func.argtypes = [ctypes.c_int, ctypes.c_void_p]
+
 
 class ObjectCleaner(object):
   """
@@ -809,6 +814,9 @@ class HEBackend(ObjectCleaner):
     size = size.value
     self.__layouts = [l.decode('utf-8') for l in layouts[:size]]
     return self.__layouts
+
+  def set_log_level(self, level):
+    set_backend_log_level_func(level, self.__handle)
 
   def __repr__(self) -> str:
     return super().__repr__() + " handle: " + hex(self.__handle)
