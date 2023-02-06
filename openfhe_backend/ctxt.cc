@@ -1,8 +1,12 @@
 
 #include "ctxt.h"
 
+#include <mutex>
+
 #include "logging.h"
 #include "utils/utils.h"
+
+std::mutex global_op_mutex;
 
 namespace aluminum_shark {
 
@@ -25,12 +29,14 @@ HECtxt* OpenFHECtxt::deepCopy() {
 // ctxt and ctxt
 HECtxt* OpenFHECtxt::operator+(const HECtxt* other) {
   const OpenFHECtxt* other_ctxt = dynamic_cast<const OpenFHECtxt*>(other);
+  AS_LOG_DEBUG << "adding ciphertext" << std::endl;
   OpenFHECtxt* result = new OpenFHECtxt(
       other_ctxt->openFHECiphertext()->Clone(),
       _name + " + " + other_ctxt->name(), _content_type, _context);
   try {
-    auto ctxt = _context._internal_context->EvalAddMutable(
+    auto ctxt = _context._internal_context->EvalAdd(
         _internal_ctxt, result->openFHECiphertext());
+    AS_LOG_DEBUG << "addition complete" << std::endl;
   } catch (const std::exception& e) {
     std::cout << e.what() << std::endl;
     delete result;
@@ -40,10 +46,30 @@ HECtxt* OpenFHECtxt::operator+(const HECtxt* other) {
 }
 
 HECtxt* OpenFHECtxt::addInPlace(const HECtxt* other) {
+  // std::lock_guard<std::mutex> guard(global_op_mutex);
+  AS_LOG_DEBUG << "adding in place ciphertext" << std::endl;
   const OpenFHECtxt* other_ctxt = dynamic_cast<const OpenFHECtxt*>(other);
   try {
     auto temp = other_ctxt->openFHECiphertext()->Clone();
-    _context._internal_context->EvalAddMutableInPlace(_internal_ctxt, temp);
+    // cecking if we need to do some modswitching
+    int level_diff = _internal_ctxt->GetLevel() - temp->GetLevel();
+    AS_LOG_DEBUG << "lhs level = " << _internal_ctxt->GetLevel()
+                 << " rhs level " << temp->GetLevel() << std::endl;
+    if (level_diff > 0) {
+      _context._internal_context->LevelReduceInPlace(_internal_ctxt, nullptr,
+                                                     level_diff);
+      AS_LOG_DEBUG << "Mod switched lhs by " << level_diff
+                   << ". lhs level = " << _internal_ctxt->GetLevel()
+                   << " rhs level " << temp->GetLevel() << std::endl;
+    } else if (level_diff < 0) {
+      _context._internal_context->LevelReduceInPlace(temp, nullptr,
+                                                     std::abs(level_diff));
+      AS_LOG_DEBUG << "Mod switched rhs by " << level_diff
+                   << ". lhs level = " << _internal_ctxt->GetLevel()
+                   << " rhs level " << temp->GetLevel() << std::endl;
+    }
+    _context._internal_context->EvalAddInPlace(_internal_ctxt, temp);
+    AS_LOG_DEBUG << "addition in place complete" << std::endl;
   } catch (const std::exception& e) {
     std::cout << e.what() << std::endl;
     throw;
@@ -57,7 +83,7 @@ HECtxt* OpenFHECtxt::operator-(const HECtxt* other) {
                                         _content_type, _context);
   result->setOpenFHECiphertext(other_ctxt->openFHECiphertext()->Clone());
   try {
-    auto ctxt = _context._internal_context->EvalSubMutable(
+    auto ctxt = _context._internal_context->EvalSub(
         _internal_ctxt, result->openFHECiphertext());
   } catch (const std::exception& e) {
     std::cout << e.what() << std::endl;
@@ -72,7 +98,7 @@ HECtxt* OpenFHECtxt::subInPlace(const HECtxt* other) {
   const OpenFHECtxt* other_ctxt = dynamic_cast<const OpenFHECtxt*>(other);
   try {
     auto temp = other_ctxt->openFHECiphertext()->Clone();
-    _context._internal_context->EvalSubMutableInPlace(_internal_ctxt, temp);
+    _context._internal_context->EvalSubInPlace(_internal_ctxt, temp);
   } catch (const std::exception& e) {
     std::cout << e.what() << std::endl;
     throw;
@@ -82,30 +108,33 @@ HECtxt* OpenFHECtxt::subInPlace(const HECtxt* other) {
 
 HECtxt* OpenFHECtxt::operator*(const HECtxt* other) {
   const OpenFHECtxt* other_ctxt = dynamic_cast<const OpenFHECtxt*>(other);
-
+  AS_LOG_DEBUG << "multiplying ciphertext" << std::endl;
   OpenFHECtxt* result = new OpenFHECtxt(
       other_ctxt->openFHECiphertext()->Clone(),
       _name + " * " + other_ctxt->name(), _content_type, _context);
   try {
-    auto ctxt = _context._internal_context->EvalSubMutable(
+    auto ctxt = _context._internal_context->EvalSub(
         _internal_ctxt, result->openFHECiphertext());
   } catch (const std::exception& e) {
     std::cout << e.what() << std::endl;
     delete result;
     throw;
   }
+  AS_LOG_DEBUG << "multiplying ciphertext done" << std::endl;
   return result;
 }
 
 HECtxt* OpenFHECtxt::multInPlace(const HECtxt* other) {
   const OpenFHECtxt* other_ctxt = dynamic_cast<const OpenFHECtxt*>(other);
+  AS_LOG_DEBUG << "multiplying ciphertext in place" << std::endl;
   try {
-    auto temp = other_ctxt->openFHECiphertext()->Clone();
-    _context._internal_context->EvalMultMutableInPlace(_internal_ctxt, temp);
+    _internal_ctxt = _context._internal_context->EvalMult(
+        _internal_ctxt, other_ctxt->openFHECiphertext());
   } catch (const std::exception& e) {
     std::cout << e.what() << std::endl;
     throw;
   }
+  AS_LOG_DEBUG << "multiplying ciphertext in place done" << std::endl;
   return this;
 }
 
@@ -117,8 +146,8 @@ HECtxt* OpenFHECtxt::operator+(HEPtxt* other) {
   OpenFHECtxt* result =
       new OpenFHECtxt(_name + " + plaintext", _content_type, _context);
   try {
-    auto ctxt = _context._internal_context->EvalAddMutable(
-        _internal_ctxt, ptxt->openFHEPlaintext());
+    auto ctxt = _context._internal_context->EvalAdd(_internal_ctxt,
+                                                    ptxt->openFHEPlaintext());
     result->setOpenFHECiphertext(ctxt);
   } catch (const std::exception& e) {
     std::cout << e.what() << std::endl;
@@ -131,7 +160,7 @@ HECtxt* OpenFHECtxt::operator+(HEPtxt* other) {
 HECtxt* OpenFHECtxt::addInPlace(HEPtxt* other) {
   OpenFHEPtxt* ptxt = dynamic_cast<OpenFHEPtxt*>(other);
   try {
-    _internal_ctxt = _context._internal_context->EvalAddMutable(
+    _internal_ctxt = _context._internal_context->EvalAdd(
         _internal_ctxt, ptxt->openFHEPlaintext());
   } catch (const std::exception& e) {
     std::cout << e.what() << std::endl;
@@ -195,8 +224,8 @@ HECtxt* OpenFHECtxt::operator-(HEPtxt* other) {
   OpenFHECtxt* result =
       new OpenFHECtxt(_name + " + plaintext", _content_type, _context);
   try {
-    auto ctxt = _context._internal_context->EvalSubMutable(
-        _internal_ctxt, ptxt->openFHEPlaintext());
+    auto ctxt = _context._internal_context->EvalSub(_internal_ctxt,
+                                                    ptxt->openFHEPlaintext());
     result->setOpenFHECiphertext(ctxt);
   } catch (const std::exception& e) {
     delete result;
@@ -209,7 +238,7 @@ HECtxt* OpenFHECtxt::operator-(HEPtxt* other) {
 HECtxt* OpenFHECtxt::subInPlace(HEPtxt* other) {
   const OpenFHEPtxt* ptxt = dynamic_cast<const OpenFHEPtxt*>(other);
   try {
-    _internal_ctxt = _context._internal_context->EvalSubMutable(
+    _internal_ctxt = _context._internal_context->EvalSub(
         _internal_ctxt, ptxt->openFHEPlaintext());
   } catch (const std::exception& e) {
     std::cout << e.what() << std::endl;
@@ -268,6 +297,7 @@ HECtxt* OpenFHECtxt::subInPlace(double other) {
 
 // multiplication
 HECtxt* OpenFHECtxt::operator*(HEPtxt* other) {
+  // std::lock_guard<std::mutex> guard(global_op_mutex);
   AS_LOG_INFO << "Ctxt plaintext multiplication" << std::endl;
   const OpenFHEPtxt* ptxt = dynamic_cast<const OpenFHEPtxt*>(other);
   OpenFHECtxt* result =
@@ -277,17 +307,19 @@ HECtxt* OpenFHECtxt::operator*(HEPtxt* other) {
     // TODO
   }
   if (ptxt->isAllOne()) {
+    AS_LOG_INFO << "ptxt is all one returning" << std::endl;
     result->setOpenFHECiphertext(_internal_ctxt->Clone());
     return result;
   }
 
   try {
-    auto ctxt = _context._internal_context->EvalMultMutable(
-        _internal_ctxt, ptxt->openFHEPlaintext());
+    AS_LOG_INFO << "Starting multiplication" << std::endl;
+    auto ctxt = _context._internal_context->EvalMult(_internal_ctxt,
+                                                     ptxt->openFHEPlaintext());
     AS_LOG_INFO << "Done" << std::endl;
     result->setOpenFHECiphertext(ctxt);
   } catch (const std::exception& e) {
-    std::cout << e.what() << std::endl;
+    AS_LOG_CRITICAL << e.what() << std::endl;
     delete result;
     throw;
   }
@@ -304,7 +336,7 @@ HECtxt* OpenFHECtxt::multInPlace(HEPtxt* other) {
     return this;
   }
   try {
-    _internal_ctxt = _context._internal_context->EvalMultMutable(
+    _internal_ctxt = _context._internal_context->EvalMult(
         _internal_ctxt, ptxt->openFHEPlaintext());
   } catch (const std::exception& e) {
     std::cout << e.what() << std::endl;
