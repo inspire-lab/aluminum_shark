@@ -7,12 +7,22 @@ from inspect import currentframe, stack
 import numpy as np
 from aluminum_shark import config
 
+CRITICAL = 50
+ERROR = 40
+WARNING = 30
+INFO = 20
+DEBUG = 10
 
-def AS_LOG(*args, hex_pointers=True, **kwargs):
+__log_level = 50
+
+
+def AS_LOG(*args, hex_pointers=True, log_level=WARNING, **kwargs):
   """
   Loggin function. Logs the filename and line it was called from. `args` and 
   `kwargs` are forwarded to `print`.
   """
+  if (__log_level >= log_level):
+    return
   args = list(args)
   if hex_pointers:
     for i in range(len(args)):
@@ -99,7 +109,7 @@ class aluminum_shark_Argument(ctypes.Structure):
         int_ = ctypes.c_long(int(value))
       # float
       elif type_ == 1:
-        float_ = ctypes.c_double(float(value))
+        double_ = ctypes.c_double(float(value))
       # string
       elif type_ == 2:
         string_ = value.encode('utf-8')
@@ -623,7 +633,6 @@ class Context(ObjectCleaner):
       ptxt_ptr_t = ctypes.c_long * len(ptxt)
       __enc_func = encrypt_long_func
     ptxt_ptr = ptxt_ptr_t(*ptxt)
-    print(ptxt_ptr)
 
     # convert name
     name_arg = name.encode('utf-8')
@@ -816,6 +825,7 @@ class HEBackend(ObjectCleaner):
     return self.__layouts
 
   def set_log_level(self, level):
+    __log_level = level
     set_backend_log_level_func(level, self.__handle)
 
   def __repr__(self) -> str:
