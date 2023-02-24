@@ -301,14 +301,15 @@ destroy_context_func.argtypes = [ctypes.c_void_p]
 # ctxt callback function
 # void* aluminum_shark_RegisterComputation(void* (*ctxt_callback)(int*),
 #                                          void (*result_callback)(void*, int),
-#                                          const char* forced_layout);
+#                                          const char* forced_layout,
+#                                          bool clear_memory);
 ctxt_callback_type = ctypes.CFUNCTYPE(ctypes.c_void_p,
                                       ctypes.POINTER(ctypes.c_int))
 result_callback_type = ctypes.CFUNCTYPE(None, ctypes.POINTER(ctypes.c_void_p),
                                         ctypes.c_int)
 register_computation_func = tf_lib.aluminum_shark_RegisterComputation
 register_computation_func.argtypes = [
-    ctxt_callback_type, result_callback_type, ctypes.c_char_p
+    ctxt_callback_type, result_callback_type, ctypes.c_char_p, ctypes.c_bool
 ]
 register_computation_func.restype = ctypes.c_void_p
 
@@ -407,6 +408,7 @@ class EncryptedExecution(ObjectCleaner):
                context,
                model_fn,
                forced_layout: str = None,
+               clear_memory: bool = False,
                *args,
                **kwargs) -> None:
     super().__init__(parent=context)
@@ -466,8 +468,10 @@ class EncryptedExecution(ObjectCleaner):
       AS_LOG(forced_layout)
     else:
       AS_LOG('creating computation without forecd laytou')
+
     self.__computation_handle = register_computation_func(
-        self.__ctxt_call_back, self.__result_callback, forced_layout)
+        self.__ctxt_call_back, self.__result_callback, forced_layout,
+        clear_memory)
 
     self.forced_layout = forced_layout
 
@@ -760,9 +764,8 @@ class HEBackend(ObjectCleaner):
           aluminum_shark_Argument(name=name, value=kwargs[name])
           for name in kwargs
       ]
-      AS_LOG('Creating Context. Arguments:')
-      for a in args:
-        print(a)
+      AS_LOG('Creating Context. Arguments:', args)
+
       args_list = (ctypes.POINTER(aluminum_shark_Argument) *
                    len(args))(*[ctypes.pointer(x) for x in args])
 
