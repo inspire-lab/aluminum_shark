@@ -185,3 +185,6 @@ dependencies/*
 messing_around/*
 logs/*
 .vscode/
+
+tools/token.txt
+tools/install_files
