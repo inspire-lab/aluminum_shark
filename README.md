@@ -3,6 +3,21 @@ Privacy Preserving Neural Networks with TensorFlow und Homomorphic Encryption
 
 Currently only works on Linux. Tested on Ubunut 20.04
 
+# Creating a conda environment with Alumnium Shark binaries installed
+
+1. Clone the Repository 
+2. Run `tools/install_conda_environment.sh <dir>`. Replace `<dir>` with the path
+   to where the conda environment should be installed.
+3. Activate the environment by running `conda activate <dir>` (Note: `<dir>` 
+   needs to be the absoultue path to the installed environment)
+
+Requirements:
+ - Linux 
+ - Python 3
+ - requests (pip3 install requests)
+ - conda (anaconda3 or miniconda3)
+
+
 # Getting started and build instrcutions
 
 First step: clone this repo
