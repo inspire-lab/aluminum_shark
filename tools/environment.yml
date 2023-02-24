@@ -1,0 +1,5 @@
+name: shark
+dependencies:
+  - python=3.8
+  - matplotlib
+  - pip
