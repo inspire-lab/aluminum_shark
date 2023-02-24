@@ -6,9 +6,11 @@ Currently only works on Linux. Tested on Ubunut 20.04
 # Creating a conda environment with Alumnium Shark binaries installed
 
 1. Clone the Repository 
-2. Run `tools/install_conda_environment.sh <dir>`. Replace `<dir>` with the path
+2. Replace the first line in `tools/token.txt` with your GitHub access token. BE
+   CAREFULL TO NEVER COMMIT YOUR TOKEN!!
+3. Run `tools/install_conda_environment.sh <dir>`. Replace `<dir>` with the path
    to where the conda environment should be installed.
-3. Activate the environment by running `conda activate <dir>` (Note: `<dir>` 
+4. Activate the environment by running `conda activate <dir>` (Note: `<dir>` 
    needs to be the absoultue path to the installed environment)
 
 Requirements:
