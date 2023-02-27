@@ -70,7 +70,7 @@ if [ $? -ne 0 ]; then
 fi
 
 # fix numpy version
-python3 -m pip install numpy==1.21.2
+python3 -m pip install numpy==1.21.2  protobuf==3.20 keras==2.6.0
 if [ $? -ne 0 ]; then
   echo "numpy install failed"
   exit 1
