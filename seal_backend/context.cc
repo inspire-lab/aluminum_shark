@@ -153,73 +153,75 @@ void SEALContext::loadPrivateKey(const std::string& file) {
 // Ciphertext related
 
 // encryption Functions
-HECtxt* SEALContext::encrypt(std::vector<long>& plain,
-                             const std::string name) const {
-  HEPtxt* ptxt = encode(plain);  // we own this memory now. need to delete it
-  HECtxt* ctxt_ptr = encrypt(ptxt, name);
-  delete ptxt;  // no longer need the plain text
+std::shared_ptr<HECtxt> SEALContext::encrypt(std::vector<long>& plain,
+                                             const std::string name) const {
+  std::shared_ptr<HEPtxt> ptxt =
+      encode(plain);  // we own this memory now. need to delete it
+  std::shared_ptr<HECtxt> ctxt_ptr = encrypt(ptxt, name);
   return ctxt_ptr;
 }
 
-HECtxt* SEALContext::encrypt(std::vector<double>& plain,
-                             const std::string name) const {
+std::shared_ptr<HECtxt> SEALContext::encrypt(std::vector<double>& plain,
+                                             const std::string name) const {
   BACKEND_LOG << "encoding plaintext " << name << std::endl;
-  HEPtxt* ptxt = encode(plain);  // we own this memory now. need to delete it
+  std::shared_ptr<HEPtxt> ptxt =
+      encode(plain);  // we own this memory now. need to delete it
 #ifdef DEBUG_BUILD
-  BACKEND_LOG << "scale " << ((SEALPtxt*)ptxt)->sealPlaintext().scale()
+  BACKEND_LOG << "scale " << ((std::dynamic_pointer_cast<SEALPtxt>(ptxt))->sealPlaintext().scale()
               << std::endl;
   std::vector<double> debug_vec = decodeDouble(ptxt);
   print_vector(debug_vec, 10);
 #endif
   BACKEND_LOG << "encyrpting plaintext " << name << std::endl;
-  HECtxt* ctxt_ptr = encrypt(ptxt, name);
+  std::shared_ptr<HECtxt> ctxt_ptr = encrypt(ptxt, name);
 #ifdef DEBUG_BUILD
   debug_vec = decryptDouble(ctxt_ptr);
   print_vector(debug_vec, 10);
 #endif
-  delete ptxt;  // no longer need the plain text
   return ctxt_ptr;
 }
 
-HECtxt* SEALContext::encrypt(HEPtxt* ptxt, const std::string name) const {
-  SEALPtxt* seal_ptxt = dynamic_cast<SEALPtxt*>(ptxt);
-  SEALCtxt* ctxt_ptr = new SEALCtxt(name, seal_ptxt->content_type(), *this);
-  _encryptor->encrypt(seal_ptxt->sealPlaintext(), ctxt_ptr->sealCiphertext());
-  return ctxt_ptr;
-}
-
-HECtxt* SEALContext::encrypt(const HEPtxt* ptxt, const std::string name) const {
-  const SEALPtxt* seal_ptxt = dynamic_cast<const SEALPtxt*>(ptxt);
-  SEALCtxt* ctxt_ptr = new SEALCtxt(name, seal_ptxt->content_type(), *this);
+std::shared_ptr<HECtxt> SEALContext::encrypt(std::shared_ptr<HEPtxt> ptxt,
+                                             const std::string name) const {
+  std::shared_ptr<SEALPtxt> seal_ptxt =
+      std::dynamic_pointer_cast<SEALPtxt>(ptxt);
+  std::shared_ptr<SEALCtxt> ctxt_ptr =
+      std::make_shared<SEALCtxt>(name, seal_ptxt->content_type(), *this);
   _encryptor->encrypt(seal_ptxt->sealPlaintext(), ctxt_ptr->sealCiphertext());
   return ctxt_ptr;
 }
 
 // decryption functions
-std::vector<long> SEALContext::decryptLong(HECtxt* ctxt) const {
-  SEALCtxt* seal_ctxt = dynamic_cast<SEALCtxt*>(ctxt);
-  SEALPtxt result(seal::Plaintext(), CONTENT_TYPE::LONG, *this);
-  _decryptor->decrypt(seal_ctxt->sealCiphertext(), result.sealPlaintext());
-  return decodeLong(&result);
+std::vector<long> SEALContext::decryptLong(std::shared_ptr<HECtxt> ctxt) const {
+  std::shared_ptr<SEALCtxt> seal_ctxt =
+      std::dynamic_pointer_cast<SEALCtxt>(ctxt);
+  std::shared_ptr<SEALPtxt> result =
+      std::make_shared<SEALPtxt>(seal::Plaintext(), CONTENT_TYPE::LONG, *this);
+  _decryptor->decrypt(seal_ctxt->sealCiphertext(), result->sealPlaintext());
+  return decodeLong(result);
 }
 
-std::vector<double> SEALContext::decryptDouble(HECtxt* ctxt) const {
-  SEALCtxt* seal_ctxt = dynamic_cast<SEALCtxt*>(ctxt);
+std::vector<double> SEALContext::decryptDouble(
+    std::shared_ptr<HECtxt> ctxt) const {
+  std::shared_ptr<SEALCtxt> seal_ctxt =
+      std::dynamic_pointer_cast<SEALCtxt>(ctxt);
   BACKEND_LOG << "decrypting " << std::endl;
-  SEALPtxt result(seal::Plaintext(), CONTENT_TYPE::DOUBLE, *this);
+  std::shared_ptr<SEALPtxt> result = std::make_shared<SEALPtxt>(
+      seal::Plaintext(), CONTENT_TYPE::DOUBLE, *this);
   BACKEND_LOG << "created result plaintext. calling decyrption function "
               << std::endl;
-  _decryptor->decrypt(seal_ctxt->sealCiphertext(), result.sealPlaintext());
+  _decryptor->decrypt(seal_ctxt->sealCiphertext(), result->sealPlaintext());
   BACKEND_LOG << "decryption successful. decoding next" << std::endl;
-  return decodeDouble(&result);
+  return decodeDouble(result);
 }
 
 // Plaintext related
 
 // encoding
-HEPtxt* SEALContext::encode(const std::vector<long>& plain) const {
-  SEALPtxt* ptxt_ptr =
-      new SEALPtxt(seal::Plaintext(), CONTENT_TYPE::LONG, *this);
+std::shared_ptr<HEPtxt> SEALContext::encode(
+    const std::vector<long>& plain) const {
+  std::shared_ptr<SEALPtxt> ptxt_ptr =
+      std::make_shared<SEALPtxt>(seal::Plaintext(), CONTENT_TYPE::LONG, *this);
   if (is_ckks()) {
     std::vector<double> double_vec(plain.begin(), plain.end());
     return encode(double_vec);
@@ -239,25 +241,27 @@ HEPtxt* SEALContext::encode(const std::vector<long>& plain) const {
   return ptxt_ptr;
 }
 
-HEPtxt* SEALContext::encode(const std::vector<double>& plain) const {
+std::shared_ptr<HEPtxt> SEALContext::encode(
+    const std::vector<double>& plain) const {
   return encode(plain, _scale);
 }
 
-HEPtxt* SEALContext::encode(const std::vector<long>& plain,
-                            double scale) const {
+std::shared_ptr<HEPtxt> SEALContext::encode(const std::vector<long>& plain,
+                                            double scale) const {
   return encode(plain, _internal_context.first_parms_id(), scale);
 }
 
-HEPtxt* SEALContext::encode(const std::vector<double>& plain,
-                            double scale) const {
+std::shared_ptr<HEPtxt> SEALContext::encode(const std::vector<double>& plain,
+                                            double scale) const {
   return encode(plain, _internal_context.first_parms_id(), scale);
 }
 
-HEPtxt* SEALContext::encode(const std::vector<long>& plain,
-                            seal::parms_id_type params_id, double scale) const {
+std::shared_ptr<HEPtxt> SEALContext::encode(const std::vector<long>& plain,
+                                            seal::parms_id_type params_id,
+                                            double scale) const {
   BACKEND_LOG << "encoding plaintext with scale " << scale << std::endl;
-  SEALPtxt* ptxt_ptr =
-      new SEALPtxt(seal::Plaintext(), CONTENT_TYPE::LONG, *this);
+  std::shared_ptr<SEALPtxt> ptxt_ptr =
+      std::make_shared<SEALPtxt>(seal::Plaintext(), CONTENT_TYPE::LONG, *this);
   if (is_ckks()) {
     std::vector<double> double_vec(plain.begin(), plain.end());
     return encode(double_vec, params_id, scale);
@@ -271,14 +275,15 @@ HEPtxt* SEALContext::encode(const std::vector<long>& plain,
   }
   return ptxt_ptr;
 }
-HEPtxt* SEALContext::encode(const std::vector<double>& plain,
-                            seal::parms_id_type params_id, double scale) const {
+std::shared_ptr<HEPtxt> SEALContext::encode(const std::vector<double>& plain,
+                                            seal::parms_id_type params_id,
+                                            double scale) const {
   BACKEND_LOG << "encoding plaintext with scale " << scale << std::endl;
 #ifdef DEBUG_BUILD
   stream_vector(plain);
 #endif
-  SEALPtxt* ptxt_ptr =
-      new SEALPtxt(seal::Plaintext(), CONTENT_TYPE::DOUBLE, *this);
+  std::shared_ptr<SEALPtxt> ptxt_ptr = std::make_shared<SEALPtxt>(
+      seal::Plaintext(), CONTENT_TYPE::DOUBLE, *this);
 
   if (plain.size() == 1) {
     _ckksencoder->encode(plain[0], params_id, scale, ptxt_ptr->sealPlaintext());
@@ -312,14 +317,18 @@ void SEALContext::encode(SEALPtxt& ptxt, seal::parms_id_type params_id,
   }
 }
 
-HEPtxt* SEALContext::createPtxt(const std::vector<long>& vec) const {
-  SEALPtxt* ptxt = new SEALPtxt(seal::Plaintext(), CONTENT_TYPE::LONG, *this);
+std::shared_ptr<HEPtxt> SEALContext::createPtxt(
+    const std::vector<long>& vec) const {
+  std::shared_ptr<SEALPtxt> ptxt =
+      std::make_shared<SEALPtxt>(seal::Plaintext(), CONTENT_TYPE::LONG, *this);
   ptxt->long_values = vec;
   return ptxt;
 }
 
-HEPtxt* SEALContext::createPtxt(const std::vector<double>& vec) const {
-  SEALPtxt* ptxt = new SEALPtxt(seal::Plaintext(), CONTENT_TYPE::DOUBLE, *this);
+std::shared_ptr<HEPtxt> SEALContext::createPtxt(
+    const std::vector<double>& vec) const {
+  std::shared_ptr<SEALPtxt> ptxt = std::make_shared<SEALPtxt>(
+      seal::Plaintext(), CONTENT_TYPE::DOUBLE, *this);
   ptxt->double_values = vec;
   return ptxt;
 }
@@ -371,13 +380,16 @@ std::vector<long> SEALContext::decode<long>(const SEALPtxt& ptxt) const {
   return result;
 }
 
-std::vector<long> SEALContext::decodeLong(HEPtxt* ptxt) const {
-  SEALPtxt* seal_ptxt = dynamic_cast<SEALPtxt*>(ptxt);
+std::vector<long> SEALContext::decodeLong(std::shared_ptr<HEPtxt> ptxt) const {
+  std::shared_ptr<SEALPtxt> seal_ptxt =
+      std::dynamic_pointer_cast<SEALPtxt>(ptxt);
   return decode<long>(*seal_ptxt);
 }
 
-std::vector<double> SEALContext::decodeDouble(HEPtxt* ptxt) const {
-  SEALPtxt* seal_ptxt = dynamic_cast<SEALPtxt*>(ptxt);
+std::vector<double> SEALContext::decodeDouble(
+    std::shared_ptr<HEPtxt> ptxt) const {
+  std::shared_ptr<SEALPtxt> seal_ptxt =
+      std::dynamic_pointer_cast<SEALPtxt>(ptxt);
   return decode<double>(*seal_ptxt);
 }
 
