@@ -25,8 +25,8 @@ CONDA_SRIPT=""
 # check if we can guess the conda path
 if [ -f ~/miniconda3/etc/profile.d/conda.sh ]; then
   CONDA_SRIPT=~/miniconda3/etc/profile.d/conda.sh
-elif [ ~/anaconda3/etc/profile.d/conda.sh ]; then
-  CONDA_SRIPT=~/miniconda3/etc/profile.d/conda.sh
+elif [ -f ~/anaconda3/etc/profile.d/conda.sh ]; then
+  CONDA_SRIPT=~/anaconda3/etc/profile.d/conda.sh
 elif [ -z $2 ]; then
   echo "could not find the conda install directory. defaults are: ~/miniconda3 and ~/anaconda3 . you need to pass it as an addtional argument"
   echo "usage: install_conda_environment.sh directory conda_dir"
