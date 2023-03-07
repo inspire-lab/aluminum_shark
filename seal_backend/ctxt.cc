@@ -8,6 +8,7 @@
 #include "object_count.h"
 #include "ptxt.h"
 #include "utils.h"
+#include "utils/macros.h"
 
 namespace aluminum_shark {
 
@@ -49,6 +50,18 @@ std::shared_ptr<HECtxt> SEALCtxt::deepCopy() {
   return result;
 }
 
+// returns the size of the ciphertext in bytes
+size_t SEALCtxt::size() {
+  // see: https://github.com/microsoft/SEAL/issues/88#issuecomment-564342477
+  auto context_data =
+      _context._internal_context.get_context_data(_internal_ctxt.parms_id());
+  size_t size = _internal_ctxt.size();
+  size *= context_data->parms().coeff_modulus().size();
+  size *= context_data->parms().poly_modulus_degree();
+  size *= 8;
+  return size;
+}
+
 // arithmetic operations
 
 // ctxt and ctxt
@@ -64,6 +77,7 @@ std::shared_ptr<HECtxt> SEALCtxt::operator+(
   try {
     _context._evaluator->add(_internal_ctxt, other_ctxt->sealCiphertext(),
                              result->sealCiphertext());
+    count_ctxt_ctxt_add();
   } catch (const std::exception& e) {
     logComputationError(_internal_ctxt, other_ctxt->sealCiphertext(),
                         "operator+(std::shared_ptr<HECtxt>)", __FILE__,
@@ -146,6 +160,7 @@ void SEALCtxt::addInPlace(const std::shared_ptr<HECtxt> other) {
         _context._ckksencoder->encode(1, _internal_ctxt.parms_id(), temp_scale,
                                       temp_ptxt);
         _context._evaluator->multiply_plain_inplace(_internal_ctxt, temp_ptxt);
+        count_ctxt_ptxt_mult();
       }
 
       // this has a higher modulus. resacle it down and add
@@ -161,6 +176,7 @@ void SEALCtxt::addInPlace(const std::shared_ptr<HECtxt> other) {
     // _internal_ctxt.scale() = other_ctxt->sealCiphertext().scale();
     _context._evaluator->add_inplace(_internal_ctxt,
                                      other_ctxt->sealCiphertext());
+    count_ctxt_ctxt_add();
   } catch (const std::exception& e) {
     std::cout << e.what() << std::endl;
     logComputationError(_internal_ctxt, other_ctxt->sealCiphertext(),
@@ -180,6 +196,7 @@ std::shared_ptr<HECtxt> SEALCtxt::operator-(
   try {
     _context._evaluator->sub(_internal_ctxt, other_ctxt->sealCiphertext(),
                              result->sealCiphertext());
+    count_ctxt_ctxt_add();
   } catch (const std::exception& e) {
     logComputationError(_internal_ctxt, other_ctxt->sealCiphertext(),
                         "operator-(std::shared_ptr<HECtxt>)", __FILE__,
@@ -196,6 +213,7 @@ void SEALCtxt::subInPlace(const std::shared_ptr<HECtxt> other) {
   try {
     _context._evaluator->sub_inplace(_internal_ctxt,
                                      other_ctxt->sealCiphertext());
+    count_ctxt_ctxt_add();
 
   } catch (const std::exception& e) {
     logComputationError(_internal_ctxt, other_ctxt->sealCiphertext(),
@@ -220,6 +238,7 @@ std::shared_ptr<HECtxt> SEALCtxt::operator*(
     _context._evaluator->relinearize_inplace(result->sealCiphertext(),
                                              _context.relinKeys());
     _context._evaluator->rescale_to_next_inplace(result->sealCiphertext());
+    count_ctxt_ctxt_mult();
   } catch (const std::exception& e) {
     logComputationError(_internal_ctxt, other_ctxt->sealCiphertext(),
                         "operatir*(std::shared_ptr<HECtxt>)", __FILE__,
@@ -256,6 +275,7 @@ void SEALCtxt::multInPlace(const std::shared_ptr<HECtxt> other) {
     _context._evaluator->relinearize_inplace(_internal_ctxt,
                                              _context.relinKeys());
     _context._evaluator->rescale_to_next_inplace(_internal_ctxt);
+    count_ctxt_ctxt_mult();
 
   } catch (const std::exception& e) {
     logComputationError(_internal_ctxt, other_ctxt->sealCiphertext(),
@@ -277,6 +297,7 @@ std::shared_ptr<HECtxt> SEALCtxt::operator+(std::shared_ptr<HEPtxt> other) {
   try {
     _context._evaluator->add_plain(_internal_ctxt, rescaled.sealPlaintext(),
                                    result->sealCiphertext());
+    count_ctxt_ptxt_add();
   } catch (const std::exception& e) {
     logComputationError(_internal_ctxt, rescaled.sealPlaintext(),
                         "opertator+(std::shared_ptr<HEPtxt>)", __FILE__,
@@ -293,6 +314,7 @@ void SEALCtxt::addInPlace(std::shared_ptr<HEPtxt> other) {
   try {
     _context._evaluator->add_plain_inplace(_internal_ctxt,
                                            rescaled.sealPlaintext());
+    count_ctxt_ptxt_add();
   } catch (const std::exception& e) {
     double scale_factor = std::max<double>(
         {std::fabs(_internal_ctxt.scale()),
@@ -323,6 +345,7 @@ std::shared_ptr<HECtxt> SEALCtxt::operator+(long other) {
   try {
     _context._evaluator->add_plain(_internal_ctxt, ptxt->sealPlaintext(),
                                    result->sealCiphertext());
+    count_ctxt_ptxt_add();
   } catch (const std::exception& e) {
     logComputationError(_internal_ctxt, ptxt->sealPlaintext(),
                         "opertator+(long)", __FILE__, __LINE__, &e);
@@ -338,6 +361,7 @@ void SEALCtxt::addInPlace(long other) {
   try {
     _context._evaluator->add_plain_inplace(_internal_ctxt,
                                            ptxt->sealPlaintext());
+    count_ctxt_ptxt_add();
   } catch (const std::exception& e) {
     logComputationError(_internal_ctxt, ptxt->sealPlaintext(),
                         "addInPlace(long)", __FILE__, __LINE__, &e);
@@ -354,6 +378,7 @@ std::shared_ptr<HECtxt> SEALCtxt::operator+(double other) {
   try {
     _context._evaluator->add_plain(_internal_ctxt, ptxt->sealPlaintext(),
                                    result->sealCiphertext());
+    count_ctxt_ptxt_add();
   } catch (const std::exception& e) {
     logComputationError(_internal_ctxt, ptxt->sealPlaintext(),
                         "operator+(double)", __FILE__, __LINE__, &e);
@@ -369,6 +394,7 @@ void SEALCtxt::addInPlace(double other) {
   try {
     _context._evaluator->add_plain_inplace(_internal_ctxt,
                                            ptxt->sealPlaintext());
+    count_ctxt_ptxt_add();
   } catch (const std::exception& e) {
     logComputationError(_internal_ctxt, ptxt->sealPlaintext(),
                         "addInPlace(double)", __FILE__, __LINE__, &e);
@@ -386,6 +412,7 @@ std::shared_ptr<HECtxt> SEALCtxt::operator-(std::shared_ptr<HEPtxt> other) {
   try {
     _context._evaluator->sub_plain(_internal_ctxt, rescaled.sealPlaintext(),
                                    result->sealCiphertext());
+    count_ctxt_ptxt_add();
   } catch (const std::exception& e) {
     logComputationError(_internal_ctxt, rescaled.sealPlaintext(),
                         "operator-(std::shared_ptr<HEPtxt>)", __FILE__,
@@ -402,6 +429,7 @@ void SEALCtxt::subInPlace(std::shared_ptr<HEPtxt> other) {
   try {
     _context._evaluator->sub_plain_inplace(_internal_ctxt,
                                            rescaled.sealPlaintext());
+    count_ctxt_ptxt_add();
   } catch (const std::exception& e) {
     logComputationError(_internal_ctxt, rescaled.sealPlaintext(),
                         "subInplace-(std::shared_ptr<HEPtxt>)", __FILE__,
@@ -419,6 +447,7 @@ std::shared_ptr<HECtxt> SEALCtxt::operator-(long other) {
   try {
     _context._evaluator->sub_plain(_internal_ctxt, ptxt->sealPlaintext(),
                                    result->sealCiphertext());
+    count_ctxt_ptxt_add();
   } catch (const std::exception& e) {
     logComputationError(_internal_ctxt, ptxt->sealPlaintext(),
                         "operator-(long)", __FILE__, __LINE__, &e);
@@ -435,6 +464,7 @@ void SEALCtxt::subInPlace(long other) {
   try {
     _context._evaluator->sub_plain_inplace(_internal_ctxt,
                                            ptxt->sealPlaintext());
+    count_ctxt_ptxt_add();
   } catch (const std::exception& e) {
     logComputationError(_internal_ctxt, ptxt->sealPlaintext(),
                         "subInPlace(long)", __FILE__, __LINE__, &e);
@@ -451,7 +481,8 @@ std::shared_ptr<HECtxt> SEALCtxt::operator-(double other) {
   try {
     _context._evaluator->sub_plain(_internal_ctxt, ptxt->sealPlaintext(),
                                    result->sealCiphertext());
-    /* code */
+    count_ctxt_ptxt_add();
+
   } catch (const std::exception& e) {
     logComputationError(_internal_ctxt, ptxt->sealPlaintext(),
                         "operator-(double)", __FILE__, __LINE__, &e);
@@ -468,6 +499,7 @@ void SEALCtxt::subInPlace(double other) {
   try {
     _context._evaluator->sub_plain_inplace(_internal_ctxt,
                                            ptxt->sealPlaintext());
+    count_ctxt_ptxt_add();
   } catch (const std::exception& e) {
     logComputationError(_internal_ctxt, ptxt->sealPlaintext(),
                         "subInPlace(double)", __FILE__, __LINE__, &e);
@@ -519,6 +551,7 @@ std::shared_ptr<HECtxt> SEALCtxt::operator*(std::shared_ptr<HEPtxt> other) {
                                              _context.relinKeys());
     BACKEND_LOG << "running rescale" << std::endl;
     _context._evaluator->rescale_to_next_inplace(result->sealCiphertext());
+    count_ctxt_ptxt_mult();
   } catch (const std::exception& e) {
     logComputationError(_internal_ctxt, ptxt->sealPlaintext(),
                         "operator*(std::shared_ptr<HEPtxt>)", __FILE__,
@@ -561,6 +594,7 @@ void SEALCtxt::multInPlace(std::shared_ptr<HEPtxt> other) {
     // _context._evaluator->relinearize_inplace(_internal_ctxt,
     //                                          _context.relinKeys());
     _context._evaluator->rescale_to_next_inplace(_internal_ctxt);
+    count_ctxt_ptxt_mult();
   } catch (const std::exception& e) {
     logComputationError(_internal_ctxt, rescaled.sealPlaintext(),
                         "multInPlace(std::shared_ptr<HEPtxt>)", __FILE__,
@@ -576,6 +610,7 @@ std::shared_ptr<HECtxt> SEALCtxt::operator*(long other) {
   std::shared_ptr<SEALPtxt> ptxt =
       std::dynamic_pointer_cast<SEALPtxt>(_context.encode(vec));
   result->multInPlace(ptxt);
+  count_ctxt_ptxt_mult();
   return result;
 }
 
@@ -584,6 +619,7 @@ void SEALCtxt::multInPlace(long other) {
   std::shared_ptr<SEALPtxt> ptxt =
       std::dynamic_pointer_cast<SEALPtxt>(_context.encode(vec));
   multInPlace(ptxt);
+  count_ctxt_ptxt_mult();
 }
 
 std::shared_ptr<HECtxt> SEALCtxt::operator*(double other) {
@@ -593,6 +629,7 @@ std::shared_ptr<HECtxt> SEALCtxt::operator*(double other) {
   std::shared_ptr<SEALPtxt> ptxt =
       std::dynamic_pointer_cast<SEALPtxt>(_context.encode(vec));
   result->multInPlace(ptxt);
+  count_ctxt_ptxt_mult();
   return result;
 }
 
@@ -607,12 +644,59 @@ void SEALCtxt::multInPlace(double other) {
 void SEALCtxt::rotInPlace(int steps) {
   _context._evaluator->rotate_vector_inplace(_internal_ctxt, steps,
                                              _context._gal_keys);
+  count_ctxt_rot();
 }
 
 std::shared_ptr<HECtxt> SEALCtxt::rotate(int steps) {
   std::shared_ptr<HECtxt> copy = this->deepCopy();
   copy->rotInPlace(steps);
   return copy;
+}
+
+// static ressource looging code
+bool SEALCtxt::count_ops = false;
+
+// ctxt x ctx
+std::atomic_ulong SEALCtxt::mult_ctxt_count = 0;
+// ctxt x ptx
+std::atomic_ulong SEALCtxt::mult_ptxt_count = 0;
+
+// ctxt x ctx
+std::atomic_ulong SEALCtxt::add_ctxt_count = 0;
+// ctxt x ptx
+std::atomic_ulong SEALCtxt::add_ptxt_count = 0;
+
+std::atomic_ulong SEALCtxt::rot_count = 0;
+
+// resource logging
+void SEALCtxt::count_ctxt_ctxt_mult() {
+  if (LIKELY_FALSE(count_ops)) {
+    ++mult_ctxt_count;
+  }
+}
+
+void SEALCtxt::count_ctxt_ptxt_mult() {
+  if (LIKELY_FALSE(count_ops)) {
+    ++mult_ptxt_count;
+  }
+}
+
+void SEALCtxt::count_ctxt_ctxt_add() {
+  if (LIKELY_FALSE(count_ops)) {
+    ++add_ctxt_count;
+  }
+}
+
+void SEALCtxt::count_ctxt_ptxt_add() {
+  if (LIKELY_FALSE(count_ops)) {
+    ++add_ptxt_count;
+  }
+}
+
+void SEALCtxt::count_ctxt_rot() {
+  if (LIKELY_FALSE(count_ops)) {
+    ++rot_count;
+  }
 }
 
 }  // namespace aluminum_shark

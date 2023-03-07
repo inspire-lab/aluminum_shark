@@ -2,6 +2,7 @@
 #include "backend.h"
 
 #include "context.h"
+#include "ctxt.h"
 #include "logging.h"
 #include "python/arg_utils.h"
 #include "seal/seal.h"
@@ -113,6 +114,78 @@ const API_VERSION& SEALBackend::api_version() { return _version; }
 
 void SEALBackend::set_log_level(int level) {
   ::aluminum_shark::set_log_level(level);
+}
+
+std::shared_ptr<Monitor> SEALBackend::enable_ressource_monitor(
+    bool enable) const {
+  if (enable) {
+    if (!SEALMonitor::instance) {
+      SEALMonitor::instance = std::make_shared<SEALMonitor>();
+    }
+    SEALCtxt::count_ops = true;
+  } else {
+    SEALMonitor::instance = nullptr;
+    SEALCtxt::count_ops = false;
+  }
+  return SEALMonitor::instance;
+}
+
+std::shared_ptr<SEALMonitor> SEALMonitor::instance;
+
+std::vector<std::string> SEALMonitor::supported_values{
+    "ctxt_ctxt_mulitplication",  //
+    "ctxt_ptxt_mulitplication",  //
+    "ctxt_ctxt_addition",        //
+    "ctxt_ptxt_addition",        //
+    "ctxt_rotation"};
+
+// helper. the value_no needs to cooresponds to the index in
+// SEALMonitor::supported_values
+bool SEALMonitor::get_monitor_value(size_t value_no, double& value) {
+  if (value_no >= this->supported_values.size()) {
+    return false;
+  }
+  switch (value_no) {
+    case 0:
+      value = SEALCtxt::mult_ctxt_count;
+      return true;
+    case 1:
+      value = SEALCtxt::mult_ptxt_count;
+      return true;
+    case 2:
+      value = SEALCtxt::add_ctxt_count;
+      return true;
+    case 3:
+      value = SEALCtxt::add_ptxt_count;
+      return true;
+    case 4:
+      value = SEALCtxt::rot_count;
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool SEALMonitor::get(const std::string& name, double& value) {
+  size_t count = 0;
+  for (auto& n : supported_values) {
+    if (n == name) {
+      return get_monitor_value(count, value);
+    }
+    ++count;
+  }
+  return false;
+};
+
+bool SEALMonitor::get_next(std::string& name, double& value) {
+  name = supported_values[_count];
+  get_monitor_value(_count, value);
+  _count = ++_count % supported_values.size();
+  return _count != 0;
+}
+
+const std::vector<std::string>& SEALMonitor::values() {
+  return supported_values;
 }
 
 }  // namespace aluminum_shark

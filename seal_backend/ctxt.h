@@ -36,6 +36,9 @@ class SEALCtxt : public HECtxt {
       const std::shared_ptr<HECtxt> other) override;
   virtual void multInPlace(const std::shared_ptr<HECtxt> other) override;
 
+  // returns the size of the ciphertext in bytes
+  virtual size_t size();
+
   // ctxt and plain
 
   // addition
@@ -81,13 +84,36 @@ class SEALCtxt : public HECtxt {
 
   const std::string& name() const;
 
+  // ressource logging api
+  static void count_ctxt_ctxt_mult();
+  static void count_ctxt_ptxt_mult();
+  static void count_ctxt_ctxt_add();
+  static void count_ctxt_ptxt_add();
+  static void count_ctxt_rot();
+
  private:
   // SEAL specific API
   friend SEALContext;
+  friend SEALMonitor;
+  friend SEALBackend;
   std::string _name;
   CONTENT_TYPE _content_type;
   const SEALContext& _context;
   seal::Ciphertext _internal_ctxt;
+
+  static bool count_ops;
+
+  // ctxt x ctx
+  static std::atomic_ulong mult_ctxt_count;
+  // ctxt x ptx
+  static std::atomic_ulong mult_ptxt_count;
+
+  // ctxt x ctx
+  static std::atomic_ulong add_ctxt_count;
+  // ctxt x ptx
+  static std::atomic_ulong add_ptxt_count;
+
+  static std::atomic_ulong rot_count;
 
   SEALCtxt(const SEALCtxt& other)
       : _name(other._name),

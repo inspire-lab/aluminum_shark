@@ -6,6 +6,9 @@ from typing import Union, List, Iterable
 from inspect import currentframe, stack
 import numpy as np
 from aluminum_shark import config
+import time
+import copy
+import datetime
 
 CRITICAL = 50
 ERROR = 40
@@ -172,6 +175,11 @@ load_backend_func.restype = ctypes.c_void_p
 destroy_backend_func = tf_lib.aluminum_shark_destroyBackend
 destroy_backend_func.argtypes = [ctypes.c_void_p]
 
+# turn on the ressource monitoring
+# void aluminum_shark_enable_ressource_monitor(bool enable, void* backend_ptr);
+enable_ressource_monitor_func = tf_lib.aluminum_shark_enable_ressource_monitor
+enable_ressource_monitor_func.argtypes = [ctypes.c_bool, ctypes.c_void_p]
+
 # create and destroy context
 
 # ckks
@@ -301,15 +309,22 @@ destroy_context_func.argtypes = [ctypes.c_void_p]
 # ctxt callback function
 # void* aluminum_shark_RegisterComputation(void* (*ctxt_callback)(int*),
 #                                          void (*result_callback)(void*, int),
+#                                          void (*monitor_value_callback)(const char*, double),
+#                                          void (*monitor_progress_callback)(const char*, bool),
 #                                          const char* forced_layout,
 #                                          bool clear_memory);
 ctxt_callback_type = ctypes.CFUNCTYPE(ctypes.c_void_p,
                                       ctypes.POINTER(ctypes.c_int))
 result_callback_type = ctypes.CFUNCTYPE(None, ctypes.POINTER(ctypes.c_void_p),
                                         ctypes.c_int)
+monitor_value_callback_type = ctypes.CFUNCTYPE(None, ctypes.c_char_p,
+                                               ctypes.c_double)
+monitor_progress_callback_type = ctypes.CFUNCTYPE(None, ctypes.c_char_p,
+                                                  ctypes.c_bool)
 register_computation_func = tf_lib.aluminum_shark_RegisterComputation
 register_computation_func.argtypes = [
-    ctxt_callback_type, result_callback_type, ctypes.c_char_p, ctypes.c_bool
+    ctxt_callback_type, result_callback_type, monitor_value_callback_type,
+    monitor_progress_callback_type, ctypes.c_char_p, ctypes.c_bool
 ]
 register_computation_func.restype = ctypes.c_void_p
 
@@ -402,6 +417,90 @@ class ObjectCleaner(object):
       o.destroy()
 
 
+class CallbackHandler(object):
+
+  def __init__(self, show_hlo_progress=True) -> None:
+    self.show_hlo_progress = show_hlo_progress
+    self.history = {}
+    self.op_history = []
+    self.__current_object = {}
+
+    def value_callback(name: ctypes.c_char_p, value: ctypes.c_double):
+      name = bytes.decode(name)
+      if name not in self.history:
+        self.history[name] = [value]
+      else:
+        self.history[name].append(value)
+      self.__current_object[name] = value
+
+    self.c_value_callback = monitor_value_callback_type(value_callback)
+
+    def progress_callback(name: ctypes.c_char_p, start: ctypes.c_bool):
+      """
+      Get's called with true when and operation starts and with false when it 
+      ends
+      """
+      name = bytes.decode(name)
+      if start:
+        start_t = time.time()
+        self.op_history.append({'start': start_t, 'op': name, 'before': {}})
+        self.__current_object = self.op_history[-1]['before']
+        if self.show_hlo_progress:
+          print('started computing: ', name, self.__current_object)
+      else:
+        end_t = time.time()
+        self.op_history[-1]['end'] = end_t
+        self.op_history[-1]['after'] = {}
+        self.__current_object = self.op_history[-1]['after']
+        if self.show_hlo_progress:
+          print(
+              'done computing: {} time elapsed: {:.2f} seconds'.format(
+                  name,
+                  self.op_history[-1]['end'] - self.op_history[-1]['start']),
+              self.__current_object)
+
+    self.c_progress_callback = monitor_progress_callback_type(progress_callback)
+
+  def compile_history(self, clear_no_ciphertext_ops=False):
+    """
+    Compiles the recorded history. If `clear_no_ciphertext_ops` hlos that have 
+    likely ciphertext involvement are ommited.
+    """
+    compiled_history = {}
+    op_history = []
+    # compile the date from the hlo operations
+    for entry in self.op_history:
+      d = copy.deepcopy(entry)
+      d['time'] = d['end'] - d['start']
+      include_op = False
+      for key in d['before']:
+        if key not in d['after']:
+          print(F'`{key}` missing')
+          d[key] = d['before'][key]
+          continue
+        d[key] = d['after'][key] - d['before'][key]
+        # if all differences are 0 we can assume that no ciphertext was invlolved
+        include_op = include_op or d[key] != 0
+      if not clear_no_ciphertext_ops or include_op:
+        op_history.append(d)
+    compiled_history['hlos'] = op_history
+
+    # set start and end time
+    compiled_history['start_time'] = datetime.datetime.fromtimestamp(
+        self.op_history[0]['start']).strftime('%Y-%m-%d-%H-%M-%S')
+    compiled_history['end_time'] = datetime.datetime.fromtimestamp(
+        self.op_history[0]['end']).strftime('%Y-%m-%d-%H-%M-%S')
+
+    # compute totals
+    total_ctxt_operations = 0
+    for key in self.history:
+      compiled_history['total_' + key] = self.history[key][-1]
+      total_ctxt_operations += self.history[key][-1]
+    compiled_history['total_ciphertext_operations'] = total_ctxt_operations
+
+    return compiled_history
+
+
 class EncryptedExecution(ObjectCleaner):
 
   def __init__(self,
@@ -409,6 +508,7 @@ class EncryptedExecution(ObjectCleaner):
                model_fn,
                forced_layout: str = None,
                clear_memory: bool = False,
+               show_progress: bool = False,
                *args,
                **kwargs) -> None:
     super().__init__(parent=context)
@@ -467,11 +567,15 @@ class EncryptedExecution(ObjectCleaner):
       forced_layout = forced_layout.encode('utf-8')
       AS_LOG(forced_layout)
     else:
-      AS_LOG('creating computation without forecd laytou')
+      AS_LOG('creating computation without forecd layout')
+
+    # create the monitor callback handler
+    self.__monitor = CallbackHandler(show_hlo_progress=show_progress)
 
     self.__computation_handle = register_computation_func(
-        self.__ctxt_call_back, self.__result_callback, forced_layout,
-        clear_memory)
+        self.__ctxt_call_back, self.__result_callback,
+        self.__monitor.c_value_callback, self.__monitor.c_progress_callback,
+        forced_layout, clear_memory)
 
     self.forced_layout = forced_layout
 
@@ -508,6 +612,10 @@ class EncryptedExecution(ObjectCleaner):
         dummies = [tf.convert_to_tensor(np.ones(x.shape)) for x in args]
       self.__func(*dummies)
     return self.result
+
+  @property
+  def monitor(self):
+    return self.__monitor
 
 
 # Wraps around a ciphertext
@@ -833,6 +941,12 @@ class HEBackend(ObjectCleaner):
 
   def __repr__(self) -> str:
     return super().__repr__() + " handle: " + hex(self.__handle)
+
+  def enable_ressource_monitor(self, enable):
+    """
+    Turns the ressource monitor on or off.
+    """
+    enable_ressource_monitor_func(enable, self.__handle)
 
 
 def debug_on(flag: bool) -> None:

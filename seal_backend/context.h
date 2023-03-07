@@ -1,6 +1,7 @@
 #ifndef ALUMINUM_SHARK_SEAL_BACKEND_CONTEXT_H
 #define ALUMINUM_SHARK_SEAL_BACKEND_CONTEXT_H
 
+#include <atomic>
 #include <memory>
 #include <string>
 
