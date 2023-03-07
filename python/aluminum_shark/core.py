@@ -511,6 +511,18 @@ class EncryptedExecution(ObjectCleaner):
                show_progress: bool = False,
                *args,
                **kwargs) -> None:
+    """
+    Create an EncryptedExecution instance. 
+
+    Args:
+      context (Context): The crypto context
+      model_fn (callable): Function that returns a model 
+      forced_layout (str): Layout to use during execution
+      clear_memory (bool): Clear intermediate results. WARNING: settting it to
+                           true will also consume and invalidate the inputs to
+                           __call__ after it returns.
+      show_progress: bool = False,
+    """
     super().__init__(parent=context)
     with tf.device("/device:XLA_HE:0"):
       self.__model = model_fn(*args, **kwargs)
@@ -572,6 +584,8 @@ class EncryptedExecution(ObjectCleaner):
     # create the monitor callback handler
     self.__monitor = CallbackHandler(show_hlo_progress=show_progress)
 
+    self.clear_memory = clear_memory
+
     self.__computation_handle = register_computation_func(
         self.__ctxt_call_back, self.__result_callback,
         self.__monitor.c_value_callback, self.__monitor.c_progress_callback,
@@ -584,6 +598,9 @@ class EncryptedExecution(ObjectCleaner):
                debug_inputs: List[np.array] = None) -> 'Ciphertext':
     """
     Perform the encrypted execution.
+
+    If `clear_memory` is `True` the inputs to this function will be invalidated
+    and can not be at any point after calling this function.
 
     args:         encrypted inputs to the exectution
     debug_inputs: list of plain data numpy arrays that can be passed for plain 
@@ -611,6 +628,11 @@ class EncryptedExecution(ObjectCleaner):
       else:
         dummies = [tf.convert_to_tensor(np.ones(x.shape)) for x in args]
       self.__func(*dummies)
+    if self.clear_memory:
+      for ctxt in self.__ctxt_inputs:
+        # the C object is destroyed during computaiton
+        ctxt.destroy(destroy_c_object=False)
+
     return self.result
 
   @property
@@ -660,13 +682,20 @@ class CipherText(ObjectCleaner):
     AS_LOG('called get_ctxt_shape_func with. got shape', shape_array[:])
     return shape_array[:]
 
-  def destroy(self) -> None:
+  def destroy(self, destroy_c_object=True) -> None:
     """
     Cleans up the ressources used by the ciphertext. Leaves it in an unuseable
     state.
+    
+    Args:
+      destroy_c_object (bool): Destroys the underlying C object too. Should 
+                               always be `True` unless the C object was 
+                               already destroyed some other way
+
     """
     super().destroy()
-    tf_lib.aluminum_shark_DestroyCiphertext(self.__handle)
+    if destroy_c_object:
+      tf_lib.aluminum_shark_DestroyCiphertext(self.__handle)
     self.__handle = None
 
   def register_object(self, object) -> None:
