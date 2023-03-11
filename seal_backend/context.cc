@@ -393,4 +393,13 @@ std::vector<double> SEALContext::decodeDouble(
   return decode<double>(*seal_ptxt);
 }
 
+// void create_new_memory_pool() {}
+
+void SEALContext::startNewGroup(const std::string& name) const {
+  AS_LOG_INFO << "creating new Memory Pool for " << name << std::endl;
+  seal::MemoryPoolHandle my_pool = seal::MemoryPoolHandle::New();
+  seal::MemoryManager::SwitchProfile(
+      std::make_unique<seal::MMProfFixed>(std::move(my_pool)));
+}
+
 }  // namespace aluminum_shark

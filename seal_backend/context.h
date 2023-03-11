@@ -139,6 +139,9 @@ class SEALContext : public HEContext {
 
   virtual HE_SCHEME scheme() const override;
 
+  // wehn using seal a new group will create a new memory pool,
+  void startNewGroup(const std::string& name) const override;
+
   // SEAL specific API
   SEALContext(seal::SEALContext context, const SEALBackend& backend,
               double scale = -1);
