@@ -53,10 +53,11 @@ CONTENT_TYPE type_to_content_type<double>() {
 }
 
 SEALContext::SEALContext(seal::SEALContext context, const SEALBackend& backend,
-                         double scale)
+                         double scale, bool galois_keys)
     : _internal_context(context),
       _backend(backend),
       _scale(std::pow(2, scale)),
+      _gen_galois_keys(galois_keys),
       _keygen(context),
       _sec_key(_keygen.secret_key()) {
   _is_ckks = _internal_context.first_context_data()->parms().scheme() ==
@@ -107,6 +108,9 @@ const HEBackend* SEALContext::getBackend() const { return &_backend; }
 int SEALContext::numberOfSlots() const { return _slot_count; }
 
 const seal::Evaluator& SEALContext::evaluator() const { return *_evaluator; }
+const seal::SEALContext& SEALContext::context() const {
+  return _internal_context;
+}
 const seal::RelinKeys& SEALContext::relinKeys() const { return _relin_keys; }
 const seal::GaloisKeys& SEALContext::galoisKeys() const { return _gal_keys; }
 // Key management
@@ -116,7 +120,9 @@ const seal::GaloisKeys& SEALContext::galoisKeys() const { return _gal_keys; }
 void SEALContext::createPublicKey() {
   _keygen.create_public_key(_pub_key);
   _keygen.create_relin_keys(_relin_keys);
-  _keygen.create_galois_keys(_gal_keys);
+  if (_gen_galois_keys) {
+    _keygen.create_galois_keys(_gal_keys);
+  }
   _encryptor = std::make_unique<seal::Encryptor>(_internal_context, _pub_key);
   _evaluator = std::make_unique<seal::Evaluator>(_internal_context);
   _pub_key_ready = true;

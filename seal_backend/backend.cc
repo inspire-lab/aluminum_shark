@@ -50,9 +50,9 @@ HEContext* SEALBackend::createContextBFV(size_t poly_modulus_degree,
   return context_ptr;
 }
 
-HEContext* SEALBackend::createContextCKKS(size_t poly_modulus_degree,
-                                          const std::vector<int>& coeff_modulus,
-                                          double scale) {
+HEContext* SEALBackend::createContextCKKS_internal(
+    size_t poly_modulus_degree, const std::vector<int>& coeff_modulus,
+    double scale, bool galois_keys) {
   // setup the encryption parameters
   seal::EncryptionParameters params(seal::scheme_type::ckks);
   params.set_poly_modulus_degree(poly_modulus_degree);
@@ -60,8 +60,14 @@ HEContext* SEALBackend::createContextCKKS(size_t poly_modulus_degree,
       seal::CoeffModulus::Create(poly_modulus_degree, coeff_modulus));
 
   SEALContext* context_ptr =
-      new SEALContext(seal::SEALContext(params), *this, scale);
+      new SEALContext(seal::SEALContext(params), *this, scale, galois_keys);
   return context_ptr;
+}
+
+HEContext* SEALBackend::createContextCKKS(size_t poly_modulus_degree,
+                                          const std::vector<int>& coeff_modulus,
+                                          double scale) {
+  return createContextCKKS_internal(poly_modulus_degree, coeff_modulus, scale);
 }
 
 HEContext* SEALBackend::createContextCKKS(
@@ -72,6 +78,7 @@ HEContext* SEALBackend::createContextCKKS(
   size_t poly_modulus_degree = 0;
   std::vector<int> coeff_modulus;
   double scale = -1;
+  bool galois_keys = true;
 
   for (const aluminum_shark_Argument& arg : arguments) {
     const char* name = arg.name;
@@ -98,6 +105,12 @@ HEContext* SEALBackend::createContextCKKS(
         coeff_modulus.push_back(arr[i]);
       }
       continue;
+    } else if (std::strcmp(name, "galois_keys") == 0) {
+      if (arg.type != 0 || arg.array_) {
+        AS_LOG_CRITICAL << name << " needs to be scalar int" << std::endl;
+      }
+      galois_keys = arg.int_ != 0;
+      continue;
     }
   }
 
@@ -105,7 +118,8 @@ HEContext* SEALBackend::createContextCKKS(
     AS_LOG_CRITICAL << "missing parameter" << std::endl;
     throw std::runtime_error("missing parameter");
   }
-  return createContextCKKS(poly_modulus_degree, coeff_modulus, scale);
+  return createContextCKKS_internal(poly_modulus_degree, coeff_modulus, scale,
+                                    galois_keys);
 }
 
 const std::string& SEALBackend::name() { return BACKEND_NAME; }

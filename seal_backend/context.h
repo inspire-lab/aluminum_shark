@@ -144,7 +144,7 @@ class SEALContext : public HEContext {
 
   // SEAL specific API
   SEALContext(seal::SEALContext context, const SEALBackend& backend,
-              double scale = -1);
+              double scale = -1, bool galois_keys = true);
 
   template <class T>
   std::vector<T> decode(const SEALPtxt& ptxt) const;
@@ -153,7 +153,7 @@ class SEALContext : public HEContext {
               double scale) const;
 
   const seal::Evaluator& evaluator() const;
-
+  const seal::SEALContext& context() const;
   const seal::RelinKeys& relinKeys() const;
   const seal::GaloisKeys& galoisKeys() const;
 
@@ -164,6 +164,7 @@ class SEALContext : public HEContext {
   const seal::SEALContext _internal_context;
   const SEALBackend& _backend;
   const double _scale;
+  bool _gen_galois_keys = true;
   std::unique_ptr<seal::BatchEncoder> _batchencoder;
   std::unique_ptr<seal::CKKSEncoder> _ckksencoder;
   seal::KeyGenerator _keygen;

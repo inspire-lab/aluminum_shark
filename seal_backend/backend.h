@@ -53,6 +53,10 @@ class SEALBackend : public HEBackend {
                                        const std::vector<int>& coeff_modulus,
                                        double scale) override;
 
+  virtual HEContext* createContextCKKS_internal(
+      size_t poly_modulus_degree, const std::vector<int>& coeff_modulus,
+      double scale, bool galois_keys = true);
+
   virtual HEContext* createContextCKKS(
       std::vector<aluminum_shark_Argument> arguments) override;
 
