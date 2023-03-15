@@ -11,6 +11,19 @@
 #include "utils.h"
 #include "utils/macros.h"
 
+namespace {
+const int64_t agressive_memory_cleanup =
+    std::getenv("ALUMINUM_SHARK_AGRESSIVE_MEMORY_CLEANUP") == nullptr
+        ? -1
+        : std::stoi(std::getenv("ALUMINUM_SHARK_AGRESSIVE_MEMORY_CLEANUP"));
+// counter for ciphertext instances. when it reaches a threshold of
+// agressive_memory_cleanup we start a new group of ciphertexts. we might loose
+// a few counting operations due to multithreading but this is more of a
+// guideline
+int64_t instance_counter = 0;
+std::mutex memory_cleaunp_mutex;
+}  // namespace
+
 namespace aluminum_shark {
 
 SEALCtxt::SEALCtxt(const std::string& name, CONTENT_TYPE content_type,
@@ -24,6 +37,22 @@ SEALCtxt::SEALCtxt(seal::Ciphertext ctxt, const std::string& name,
       _context(context),
       _internal_ctxt(ctxt) {
   count_ctxt(1);
+  if (agressive_memory_cleanup != 1) {
+    // check if we reached the threshold
+    if (instance_counter > agressive_memory_cleanup) {
+      // grab the lock and start the cleanup process
+      const std::lock_guard<std::mutex> lock(memory_cleaunp_mutex);
+      // first we check if another thread changed the count and we actually
+      // still need to do the cleanup
+      if (instance_counter > agressive_memory_cleanup) {
+        // start a new group and reset the counter
+        context.startNewGroup("_internal_");
+        instance_counter = 0;
+      }
+    } else {
+      ++instance_counter;
+    }
+  }
 };
 
 const seal::Ciphertext& SEALCtxt::sealCiphertext() const {
