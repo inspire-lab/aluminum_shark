@@ -55,6 +55,7 @@ class MemoryLogger(object):
     self.thread = Thread(target=task,
                          args=(self.event, self.pid, self.queue,
                                self.log_history),
+                         daemon=True,
                          name='memlogger')
     self.thread.start()
 
