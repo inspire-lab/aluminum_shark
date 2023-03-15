@@ -424,6 +424,7 @@ class CallbackHandler(object):
     self.history = {}
     self.op_history = []
     self.__current_object = {}
+    self.__progress = 0
 
     def value_callback(name: ctypes.c_char_p, value: ctypes.c_double):
       name = bytes.decode(name)
@@ -446,12 +447,14 @@ class CallbackHandler(object):
         self.op_history.append({'start': start_t, 'op': name, 'before': {}})
         self.__current_object = self.op_history[-1]['before']
         if self.show_hlo_progress:
-          print('started computing: ', name, self.__current_object)
+          print(f'{self.__progress}/? started computing: ', name,
+                self.__current_object)
       else:
         end_t = time.time()
         self.op_history[-1]['end'] = end_t
         self.op_history[-1]['after'] = {}
         self.__current_object = self.op_history[-1]['after']
+        self.__progress += 1
         if self.show_hlo_progress:
           print(
               'done computing: {} time elapsed: {:.2f} seconds'.format(
