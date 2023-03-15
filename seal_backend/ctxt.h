@@ -82,6 +82,12 @@ class SEALCtxt : public HECtxt {
   const seal::Ciphertext& sealCiphertext() const;
   CONTENT_TYPE content_type() const;
 
+  // helper function to match scale and parameters of two ciphertexts
+  // the function is inteded to match this' scale and paramters to other's
+  // since we can only to lower levels this means that this is the ciphertext at
+  // the lower level
+  void match_scale_and_parms(const SEALCtxt& other);
+
   const std::string& name() const;
 
   // ressource logging api

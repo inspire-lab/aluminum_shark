@@ -2,6 +2,7 @@
 
 #include <cxxabi.h>
 
+#include <sstream>
 #include <typeinfo>
 
 #include "logging.h"
@@ -47,6 +48,10 @@ std::shared_ptr<HECtxt> SEALCtxt::deepCopy() {
   // work around since the copy constructor is private
   SEALCtxt* raw = new SEALCtxt(*this);
   std::shared_ptr<SEALCtxt> result = std::shared_ptr<SEALCtxt>(raw);
+  std::stringstream ss;
+  ss << "this " << static_cast<void*>(this) << " copy "
+     << static_cast<void*>(result.get()) << std::endl;
+  AS_LOG_DEBUG << ss.str();
   return result;
 }
 
@@ -68,6 +73,42 @@ size_t SEALCtxt::size() {
 
 // Addintion
 
+void SEALCtxt::match_scale_and_parms(const SEALCtxt& other) {
+  const seal::SEALContext& seal_context = _context.context();
+  // do we need to match scales?
+  seal::Ciphertext& this_ctxt = _internal_ctxt;
+  const seal::Ciphertext& other_ctxt = other.sealCiphertext();
+  if (this_ctxt.scale() != other_ctxt.scale()) {
+    // calculate scale
+    double last_prime =
+        static_cast<double>(seal_context.get_context_data(this_ctxt.parms_id())
+                                ->parms()
+                                .coeff_modulus()
+                                .back()
+                                .value());
+
+    double temp_scale = other_ctxt.scale() / this_ctxt.scale() * last_prime;
+    // create temporary plaintext
+    seal::Plaintext plaintext =
+        std::dynamic_pointer_cast<SEALPtxt>(
+            _context.encode(std::vector<double>{1.}, this_ctxt.parms_id(),
+                            temp_scale))
+            ->sealPlaintext();
+    _context._evaluator->multiply_plain_inplace(_internal_ctxt, plaintext);
+    count_ctxt_ptxt_mult();
+    _context._evaluator->relinearize_inplace(_internal_ctxt,
+                                             _context.relinKeys());
+    _context._evaluator->rescale_to_next_inplace(_internal_ctxt);
+  }
+  // check if the params id match now
+  if (seal_context.get_context_data(_internal_ctxt.parms_id())->chain_index() ==
+      seal_context.get_context_data(other_ctxt.parms_id())->chain_index()) {
+    return;
+  }
+  _context._evaluator->mod_switch_to_inplace(_internal_ctxt,
+                                             other_ctxt.parms_id());
+}
+
 std::shared_ptr<HECtxt> SEALCtxt::operator+(
     const std::shared_ptr<HECtxt> other) {
   const std::shared_ptr<SEALCtxt> other_ctxt =
@@ -84,7 +125,9 @@ std::shared_ptr<HECtxt> SEALCtxt::operator+(
                         __LINE__, &e);
     throw;
   }
-
+  std::stringstream ss;
+  ss << "ctxt + ctxt this " << (void*)this << " other " << other << " result "
+     << result << std::endl;
   return result;
 }
 
@@ -106,76 +149,74 @@ void SEALCtxt::addInPlace(const std::shared_ptr<HECtxt> other) {
                             other_ctxt->sealCiphertext().parms_id())
                         ->chain_index()
                  << std::endl;
+    std::stringstream ss;
+    ss << " ctxt += ctxt  this " << static_cast<void*>(this) << " other "
+       << other << std::endl;
+    ss << "adding. lhs scale " << std::log2(_internal_ctxt.scale())
+       << " rhs scale " << std::log2(other_ctxt->sealCiphertext().scale())
+       << std::endl;
+    ss << "\t lhs params index: "
+       << _context._internal_context
+              .get_context_data(_internal_ctxt.parms_id())
+              ->chain_index()
+       << " \n\t rhs params index "
+       << _context._internal_context
+              .get_context_data(other_ctxt->sealCiphertext().parms_id())
+              ->chain_index()
+       << std::endl;
+    AS_LOG_DEBUG << ss.str();
+    // params id are mismatch we need to bring them to the same parameters
     if (_internal_ctxt.parms_id() != other_ctxt->sealCiphertext().parms_id()) {
       auto context_data_lhs = _context._internal_context.get_context_data(
           _internal_ctxt.parms_id());
       auto context_data_rhs = _context._internal_context.get_context_data(
           other_ctxt->sealCiphertext().parms_id());
-
-      // other has a higher modulus. resacle it down and add
+      // other has a higher modulus. need to scale it down
       if (context_data_lhs->chain_index() < context_data_rhs->chain_index()) {
-        AS_LOG_DEBUG << "parameters mismatch. rescaling other" << std::endl;
-        seal::Ciphertext rescaled_ctxt;
-        _context._evaluator->mod_switch_to(other_ctxt->_internal_ctxt,
-                                           _internal_ctxt.parms_id(),
-                                           rescaled_ctxt);
+        std::stringstream ss;
+        ss << "parameters mismatch. rescaling other. scales lhs "
+           << _internal_ctxt.scale() << " lhs "
+           << other_ctxt->sealCiphertext().scale() << std::endl;
+        AS_LOG_DEBUG << ss.str();
 
-        std::stringstream sslhs;
+        auto rescaled_ctxt =
+            std::dynamic_pointer_cast<SEALCtxt>(other_ctxt->deepCopy());
+        rescaled_ctxt->match_scale_and_parms(*this);
+        ss << "after scale matching rhs " << _internal_ctxt.scale() << " lhs "
+           << rescaled_ctxt->sealCiphertext().scale()
+           << "\n\t lhs params index: "
+           << _context._internal_context
+                  .get_context_data(_internal_ctxt.parms_id())
+                  ->chain_index()
+           << " parms_id: [ ";
         for (auto i : _internal_ctxt.parms_id()) {
-          sslhs << i << ", ";
+          ss << i << ", ";
         }
-        std::stringstream ssrhs;
-        for (auto i : rescaled_ctxt.parms_id()) {
-          ssrhs << i << ", ";
+        ss << "] \n\t rhs params index "
+           << _context._internal_context
+                  .get_context_data(rescaled_ctxt->sealCiphertext().parms_id())
+                  ->chain_index()
+           << "parms_id: [ ";
+        for (auto i : rescaled_ctxt->sealCiphertext().parms_id()) {
+          ss << i << ", ";
         }
+        ss << "]" << std::endl;
 
-        AS_LOG_DEBUG << "\t lhs params index: "
-                     << _context._internal_context
-                            .get_context_data(_internal_ctxt.parms_id())
-                            ->chain_index()
-                     << " parms_id: [ " << sslhs.str()
-                     << "] \n\t rhs params index "
-                     << _context._internal_context
-                            .get_context_data(rescaled_ctxt.parms_id())
-                            ->chain_index()
-                     << "parms_id: [ " << sslhs.str() << "]" << std::endl;
-        _internal_ctxt.scale() = other_ctxt->sealCiphertext().scale();
-        _context._evaluator->add_inplace(_internal_ctxt, rescaled_ctxt);
+        AS_LOG_DEBUG << ss.str();
+
+        _context._evaluator->add_inplace(_internal_ctxt,
+                                         rescaled_ctxt->sealCiphertext());
+      } else {
+        // this has a higher moduls
+        match_scale_and_parms(*other_ctxt);
+        _context._evaluator->add_inplace(_internal_ctxt,
+                                         other_ctxt->sealCiphertext());
       }
-
-      double last_prime = static_cast<double>(
-          context_data_lhs->parms().coeff_modulus().back().value());
-
-      AS_LOG_DEBUG << "last prime " << last_prime << " ("
-                   << std::log2(last_prime) << " bits)" << std::endl;
-
-      // x * s / l = y
-      // s = y / x * l
-      double temp_scale = other_ctxt->sealCiphertext().scale() /
-                          _internal_ctxt.scale() * last_prime;
-      AS_LOG_DEBUG << "temp ptxt scale: " << temp_scale << " ("
-                   << std::log2(temp_scale) << " bits)" << std::endl;
-      {
-        seal::Plaintext temp_ptxt;
-        _context._ckksencoder->encode(1, _internal_ctxt.parms_id(), temp_scale,
-                                      temp_ptxt);
-        _context._evaluator->multiply_plain_inplace(_internal_ctxt, temp_ptxt);
-        count_ctxt_ptxt_mult();
-      }
-
-      // this has a higher modulus. resacle it down and add
-      AS_LOG_DEBUG << "parameters mismatch. rescaling this from "
-                   << _internal_ctxt.scale() << std::endl;
-      _context._evaluator->rescale_to_next_inplace(_internal_ctxt);
-      AS_LOG_DEBUG << "rescaling to " << _internal_ctxt.scale() << std::endl;
-      // _context._evaluator->mod_switch_to_inplace(
-      //     _internal_ctxt, other_ctxt->sealCiphertext().parms_id());
-      AS_LOG_DEBUG << "lhs scale " << _internal_ctxt.scale() << " rhs scale "
-                   << other_ctxt->sealCiphertext().scale() << std::endl;
+    } else {
+      // scales and everything match. just add
+      _context._evaluator->add_inplace(_internal_ctxt,
+                                       other_ctxt->sealCiphertext());
     }
-    // _internal_ctxt.scale() = other_ctxt->sealCiphertext().scale();
-    _context._evaluator->add_inplace(_internal_ctxt,
-                                     other_ctxt->sealCiphertext());
     count_ctxt_ctxt_add();
   } catch (const std::exception& e) {
     std::cout << e.what() << std::endl;
@@ -248,10 +289,39 @@ std::shared_ptr<HECtxt> SEALCtxt::operator*(
   return result;
 }
 
+void mult_check(seal::Ciphertext& one, seal::Ciphertext& two,
+                const SEALContext& context) {
+  // check if the resulting multiplication will be within scale
+  double max_scale = context.context()
+                         .get_context_data(one.parms_id())
+                         ->total_coeff_modulus_bit_count();
+
+  while (std::log2(one.scale() * two.scale()) > max_scale) {
+    std::stringstream ss;
+    ss << "rescaling from: " << one.scale() << " chain_index: "
+       << context.context().get_context_data(one.parms_id())->chain_index()
+       << std::endl;
+    AS_LOG_DEBUG << ss.str();
+    context.evaluator().rescale_to_next_inplace(one);
+    context.evaluator().rescale_to_next_inplace(two);
+    max_scale = context.context()
+                    .get_context_data(one.parms_id())
+                    ->total_coeff_modulus_bit_count();
+    ss << "rescaled to: " << one.scale() << " chain_index: "
+       << context.context().get_context_data(one.parms_id())->chain_index()
+       << std::endl;
+    AS_LOG_DEBUG << ss.str();
+  }
+}
+
 void SEALCtxt::multInPlace(const std::shared_ptr<HECtxt> other) {
   const std::shared_ptr<SEALCtxt> other_ctxt =
       std::dynamic_pointer_cast<SEALCtxt>(other);
   try {
+    std::stringstream ss;
+    ss << "ctxt *= ctxt this " << (void*)this << " other " << other
+       << std::endl;
+    AS_LOG_DEBUG << ss.str();
     auto& lhs_parms = _internal_ctxt.parms_id();
     auto& rhs_parms = other_ctxt->sealCiphertext().parms_id();
     if (lhs_parms != rhs_parms) {
@@ -260,12 +330,24 @@ void SEALCtxt::multInPlace(const std::shared_ptr<HECtxt> other) {
       // mod switch this
       if (s_context.get_context_data(lhs_parms)->chain_index() >
           s_context.get_context_data(rhs_parms)->chain_index()) {
+        AS_LOG_DEBUG << "modswitching `this` from " +
+                            std::to_string(_internal_ctxt.scale())
+                     << std::endl;
         _context._evaluator->mod_switch_to_inplace(_internal_ctxt, rhs_parms);
+        AS_LOG_DEBUG << "modswitched `this` to " +
+                            std::to_string(_internal_ctxt.scale())
+                     << std::endl;
         _context._evaluator->multiply_inplace(_internal_ctxt,
                                               other_ctxt->sealCiphertext());
-      } else {
+      } else {  // mod switch other
         ctxt = other_ctxt->sealCiphertext();
+        AS_LOG_DEBUG << "modswitching `other` from " +
+                            std::to_string(ctxt.scale())
+                     << std::endl;
         _context._evaluator->mod_switch_to_inplace(ctxt, lhs_parms);
+        AS_LOG_DEBUG << "modswitching `other` to " +
+                            std::to_string(ctxt.scale())
+                     << std::endl;
         _context._evaluator->multiply_inplace(_internal_ctxt, ctxt);
       }
     } else {
@@ -304,6 +386,9 @@ std::shared_ptr<HECtxt> SEALCtxt::operator+(std::shared_ptr<HEPtxt> other) {
                         __LINE__, &e);
     throw;
   }
+  std::stringstream ss;
+  ss << "ctxt + ptxt this " << (void*)this << " result " << result << std::endl;
+  AS_LOG_DEBUG << ss.str();
   return result;
 }
 
@@ -311,6 +396,9 @@ void SEALCtxt::addInPlace(std::shared_ptr<HEPtxt> other) {
   std::shared_ptr<SEALPtxt> ptxt = std::dynamic_pointer_cast<SEALPtxt>(other);
   SEALPtxt rescaled = ptxt->scaleToMatch(*this);
 
+  std::stringstream ss;
+  ss << "ctxt += ptxt this " << (void*)this << std::endl;
+  AS_LOG_DEBUG << ss.str();
   try {
     _context._evaluator->add_plain_inplace(_internal_ctxt,
                                            rescaled.sealPlaintext());
@@ -332,72 +420,6 @@ void SEALCtxt::addInPlace(std::shared_ptr<HEPtxt> other) {
     logComputationError(_internal_ctxt, rescaled.sealPlaintext(),
                         "addInPlace(std::shared_ptr<HEPtxt>)", __FILE__,
                         __LINE__, &e);
-    throw;
-  }
-}
-
-std::shared_ptr<HECtxt> SEALCtxt::operator+(long other) {
-  std::shared_ptr<SEALCtxt> result = std::make_shared<SEALCtxt>(
-      _name + " + " + std::to_string(other), _content_type, _context);
-  std::vector<long> vec(_context.numberOfSlots(), other);
-  std::shared_ptr<SEALPtxt> ptxt =
-      std::dynamic_pointer_cast<SEALPtxt>(_context.encode(vec));
-  try {
-    _context._evaluator->add_plain(_internal_ctxt, ptxt->sealPlaintext(),
-                                   result->sealCiphertext());
-    count_ctxt_ptxt_add();
-  } catch (const std::exception& e) {
-    logComputationError(_internal_ctxt, ptxt->sealPlaintext(),
-                        "opertator+(long)", __FILE__, __LINE__, &e);
-    throw;
-  }
-  return result;
-}
-
-void SEALCtxt::addInPlace(long other) {
-  std::vector<long> vec(_context.numberOfSlots(), other);
-  std::shared_ptr<SEALPtxt> ptxt =
-      std::dynamic_pointer_cast<SEALPtxt>(_context.encode(vec));
-  try {
-    _context._evaluator->add_plain_inplace(_internal_ctxt,
-                                           ptxt->sealPlaintext());
-    count_ctxt_ptxt_add();
-  } catch (const std::exception& e) {
-    logComputationError(_internal_ctxt, ptxt->sealPlaintext(),
-                        "addInPlace(long)", __FILE__, __LINE__, &e);
-    throw;
-  }
-}
-
-std::shared_ptr<HECtxt> SEALCtxt::operator+(double other) {
-  std::shared_ptr<SEALCtxt> result = std::make_shared<SEALCtxt>(
-      _name + " + " + std::to_string(other), _content_type, _context);
-  std::vector<double> vec(_context.numberOfSlots(), other);
-  std::shared_ptr<SEALPtxt> ptxt =
-      std::dynamic_pointer_cast<SEALPtxt>(_context.encode(vec));
-  try {
-    _context._evaluator->add_plain(_internal_ctxt, ptxt->sealPlaintext(),
-                                   result->sealCiphertext());
-    count_ctxt_ptxt_add();
-  } catch (const std::exception& e) {
-    logComputationError(_internal_ctxt, ptxt->sealPlaintext(),
-                        "operator+(double)", __FILE__, __LINE__, &e);
-    throw;
-  }
-  return result;
-}
-
-void SEALCtxt::addInPlace(double other) {
-  std::vector<double> vec(_context.numberOfSlots(), other);
-  std::shared_ptr<SEALPtxt> ptxt =
-      std::dynamic_pointer_cast<SEALPtxt>(_context.encode(vec));
-  try {
-    _context._evaluator->add_plain_inplace(_internal_ctxt,
-                                           ptxt->sealPlaintext());
-    count_ctxt_ptxt_add();
-  } catch (const std::exception& e) {
-    logComputationError(_internal_ctxt, ptxt->sealPlaintext(),
-                        "addInPlace(double)", __FILE__, __LINE__, &e);
     throw;
   }
 }
@@ -436,6 +458,156 @@ void SEALCtxt::subInPlace(std::shared_ptr<HEPtxt> other) {
                         __LINE__, &e);
     throw;
   }
+}
+
+// multiplication
+std::shared_ptr<HECtxt> SEALCtxt::operator*(std::shared_ptr<HEPtxt> other) {
+  std::shared_ptr<SEALPtxt> ptxt = std::dynamic_pointer_cast<SEALPtxt>(other);
+  // if (ptxt->isAllZero()) {
+  //   // if we multiplied here the scale would the ciphertext scale *
+  //   plainscale
+  //   // butt since we specifically rescale the plaintext to be the same
+  //   scale
+  //   // as the ciphertext we can just square the scale and for rescaling the
+  //   // the plaintext before encryption
+  //   // TODO: be smarter about the scale. we should really look at the scale
+  //   and
+  //   // what the next scale down would lead to and use that scale during
+  //   encoding BACKEND_LOG << "circumventing transparent ciphertext" <<
+  //   std::endl; SEALPtxt temp = ptxt->rescale(
+  //       this->_internal_ctxt.scale() * this->_internal_ctxt.scale(),
+  //       _internal_ctxt.parms_id());
+  //   std::shared_ptr<SEALCtxt> res =
+  //   static_cast<std::shared_ptr<SEALCtxt((_context.encrypt(&temp));
+  //   res->_name = _name + " * plaintext";
+  //   _context._evaluator->relinearize_inplace(res->sealCiphertext(),
+  //                                            _context.relinKeys());
+  //   _context._evaluator->rescale_to_next_inplace(res->sealCiphertext());
+  //   return res;
+  // }
+
+  // TODO: shortcut evalution for special case 1
+  ptxt->mutex.lock();
+  if (!are_close(_internal_ctxt.scale(), ptxt->sealPlaintext().scale())) {
+    ptxt->scaleToMatchInPlace(*this);
+  }
+  ptxt->mutex.unlock();
+  BACKEND_LOG << "creating result ctxt" << std::endl;
+  std::shared_ptr<SEALCtxt> result = std::make_shared<SEALCtxt>(
+      _name + " * plaintext", _content_type, _context);
+  try {
+    BACKEND_LOG << "running multiplication" << std::endl;
+    _context._evaluator->multiply_plain(_internal_ctxt, ptxt->sealPlaintext(),
+                                        result->sealCiphertext());
+    BACKEND_LOG << "running relin" << std::endl;
+    _context._evaluator->relinearize_inplace(result->sealCiphertext(),
+                                             _context.relinKeys());
+    BACKEND_LOG << "running rescale" << std::endl;
+    _context._evaluator->rescale_to_next_inplace(result->sealCiphertext());
+    count_ctxt_ptxt_mult();
+  } catch (const std::exception& e) {
+    logComputationError(_internal_ctxt, ptxt->sealPlaintext(),
+                        "operator*(std::shared_ptr<HEPtxt>)", __FILE__,
+                        __LINE__, &e);
+    throw;
+  }
+
+  BACKEND_LOG << "mutlplication done" << std::endl;
+  std::stringstream ss;
+  ss << "ctxt * ptxt this: " << (void*)this << " result " << result
+     << std::endl;
+  AS_LOG_DEBUG << ss.str();
+  return result;
+}
+
+void SEALCtxt::multInPlace(std::shared_ptr<HEPtxt> other) {
+  const std::shared_ptr<SEALPtxt> ptxt =
+      std::dynamic_pointer_cast<SEALPtxt>(other);
+  // if (ptxt->isAllZero()) {
+  //   // if we multiplied here the scale would the ciphertext scale *
+  //   plainscale
+  //   // butt since we specifically rescale the plaintext to be the same scale
+  //   // as the ciphertext we can just square the scale and for rescaling the
+  //   // the plaintext before encryption
+  //   // TODO: same as operator*(std::shared_ptr<HEPtxt>). use the proper scale
+  //   // during encoding
+  //   std::shared_ptr<SEALPtxt> temp = std::make_shared<SEALPtxt>(
+  //       std::move(ptxt->rescale(std::log2(this->_internal_ctxt.scale() *
+  //                                         this->_internal_ctxt.scale()),
+  //                               _internal_ctxt.parms_id())));
+
+  //   std::shared_ptr<SEALCtxt> res =
+  //       std::dynamic_pointer_cast<SEALCtxt>(_context.encrypt(temp));
+  //   res->_name = _name + " * plaintext";
+  //   _internal_ctxt = res->sealCiphertext();
+  //   _context._evaluator->relinearize_inplace(_internal_ctxt,
+  //                                            _context.relinKeys());
+  //   _context._evaluator->rescale_to_next_inplace(_internal_ctxt);
+  // }
+
+  SEALPtxt rescaled = ptxt->scaleToMatch(*this);
+  try {
+    _context._evaluator->multiply_plain_inplace(_internal_ctxt,
+                                                rescaled.sealPlaintext());
+    _context._evaluator->relinearize_inplace(_internal_ctxt,
+                                             _context.relinKeys());
+    _context._evaluator->rescale_to_next_inplace(_internal_ctxt);
+    std::stringstream ss;
+
+    ss << "ctxt *= ptxt. this: " << (void*)this << "\n\tresult scale "
+       << std::log2(_internal_ctxt.scale()) << std::endl;
+    ss << "\t params index: "
+       << _context._internal_context
+              .get_context_data(_internal_ctxt.parms_id())
+              ->chain_index()
+       << std::endl;
+    AS_LOG_DEBUG << ss.str();
+    count_ctxt_ptxt_mult();
+  } catch (const std::exception& e) {
+    logComputationError(_internal_ctxt, rescaled.sealPlaintext(),
+                        "multInPlace(std::shared_ptr<HEPtxt>)", __FILE__,
+                        __LINE__, &e, &_context._internal_context);
+    throw;
+  }
+}
+
+// scalar ops
+
+std::shared_ptr<HECtxt> SEALCtxt::operator*(long other) {
+  std::shared_ptr<SEALCtxt> result = std::make_shared<SEALCtxt>(
+      _name + " * " + std::to_string(other), _content_type, _context);
+  std::vector<long> vec(_context.numberOfSlots(), other);
+  std::shared_ptr<SEALPtxt> ptxt =
+      std::dynamic_pointer_cast<SEALPtxt>(_context.encode(vec));
+  result->multInPlace(ptxt);
+  count_ctxt_ptxt_mult();
+  return result;
+}
+
+void SEALCtxt::multInPlace(long other) {
+  std::vector<long> vec(_context.numberOfSlots(), other);
+  std::shared_ptr<SEALPtxt> ptxt =
+      std::dynamic_pointer_cast<SEALPtxt>(_context.encode(vec));
+  multInPlace(ptxt);
+  count_ctxt_ptxt_mult();
+}
+
+std::shared_ptr<HECtxt> SEALCtxt::operator*(double other) {
+  std::shared_ptr<SEALCtxt> result = std::make_shared<SEALCtxt>(
+      _name + " * " + std::to_string(other), _content_type, _context);
+  std::vector<double> vec(_context.numberOfSlots(), other);
+  std::shared_ptr<SEALPtxt> ptxt =
+      std::dynamic_pointer_cast<SEALPtxt>(_context.encode(vec));
+  result->multInPlace(ptxt);
+  count_ctxt_ptxt_mult();
+  return result;
+}
+
+void SEALCtxt::multInPlace(double other) {
+  std::vector<long> vec(_context.numberOfSlots(), other);
+  std::shared_ptr<SEALPtxt> ptxt =
+      std::dynamic_pointer_cast<SEALPtxt>(_context.encode(vec));
+  multInPlace(ptxt);
 }
 
 std::shared_ptr<HECtxt> SEALCtxt::operator-(long other) {
@@ -507,137 +679,70 @@ void SEALCtxt::subInPlace(double other) {
   }
 }
 
-// multiplication
-std::shared_ptr<HECtxt> SEALCtxt::operator*(std::shared_ptr<HEPtxt> other) {
-  std::shared_ptr<SEALPtxt> ptxt = std::dynamic_pointer_cast<SEALPtxt>(other);
-  // if (ptxt->isAllZero()) {
-  //   // if we multiplied here the scale would the ciphertext scale *
-  //   plainscale
-  //   // butt since we specifically rescale the plaintext to be the same
-  //   scale
-  //   // as the ciphertext we can just square the scale and for rescaling the
-  //   // the plaintext before encryption
-  //   // TODO: be smarter about the scale. we should really look at the scale
-  //   and
-  //   // what the next scale down would lead to and use that scale during
-  //   encoding BACKEND_LOG << "circumventing transparent ciphertext" <<
-  //   std::endl; SEALPtxt temp = ptxt->rescale(
-  //       this->_internal_ctxt.scale() * this->_internal_ctxt.scale(),
-  //       _internal_ctxt.parms_id());
-  //   std::shared_ptr<SEALCtxt> res =
-  //   static_cast<std::shared_ptr<SEALCtxt((_context.encrypt(&temp));
-  //   res->_name = _name + " * plaintext";
-  //   _context._evaluator->relinearize_inplace(res->sealCiphertext(),
-  //                                            _context.relinKeys());
-  //   _context._evaluator->rescale_to_next_inplace(res->sealCiphertext());
-  //   return res;
-  // }
-
-  // TODO: shortcut evalution for special case 1
-  ptxt->mutex.lock();
-  if (!are_close(_internal_ctxt.scale(), ptxt->sealPlaintext().scale())) {
-    ptxt->scaleToMatchInPlace(*this);
-  }
-  ptxt->mutex.unlock();
-  BACKEND_LOG << "creating result ctxt" << std::endl;
+std::shared_ptr<HECtxt> SEALCtxt::operator+(long other) {
   std::shared_ptr<SEALCtxt> result = std::make_shared<SEALCtxt>(
-      _name + " * plaintext", _content_type, _context);
+      _name + " + " + std::to_string(other), _content_type, _context);
+  std::vector<long> vec(_context.numberOfSlots(), other);
+  std::shared_ptr<SEALPtxt> ptxt =
+      std::dynamic_pointer_cast<SEALPtxt>(_context.encode(vec));
   try {
-    BACKEND_LOG << "running multiplication" << std::endl;
-    _context._evaluator->multiply_plain(_internal_ctxt, ptxt->sealPlaintext(),
-                                        result->sealCiphertext());
-    BACKEND_LOG << "running relin" << std::endl;
-    _context._evaluator->relinearize_inplace(result->sealCiphertext(),
-                                             _context.relinKeys());
-    BACKEND_LOG << "running rescale" << std::endl;
-    _context._evaluator->rescale_to_next_inplace(result->sealCiphertext());
-    count_ctxt_ptxt_mult();
+    _context._evaluator->add_plain(_internal_ctxt, ptxt->sealPlaintext(),
+                                   result->sealCiphertext());
+    count_ctxt_ptxt_add();
   } catch (const std::exception& e) {
     logComputationError(_internal_ctxt, ptxt->sealPlaintext(),
-                        "operator*(std::shared_ptr<HEPtxt>)", __FILE__,
-                        __LINE__, &e);
+                        "opertator+(long)", __FILE__, __LINE__, &e);
     throw;
   }
-
-  BACKEND_LOG << "mutlplication done" << std::endl;
   return result;
 }
 
-void SEALCtxt::multInPlace(std::shared_ptr<HEPtxt> other) {
-  const std::shared_ptr<SEALPtxt> ptxt =
-      std::dynamic_pointer_cast<SEALPtxt>(other);
-  if (ptxt->isAllZero()) {
-    // if we multiplied here the scale would the ciphertext scale * plainscale
-    // butt since we specifically rescale the plaintext to be the same scale
-    // as the ciphertext we can just square the scale and for rescaling the
-    // the plaintext before encryption
-    // TODO: same as operator*(std::shared_ptr<HEPtxt>). use the proper scale
-    // during encoding
-    std::shared_ptr<SEALPtxt> temp = std::make_shared<SEALPtxt>(
-        std::move(ptxt->rescale(std::log2(this->_internal_ctxt.scale() *
-                                          this->_internal_ctxt.scale()),
-                                _internal_ctxt.parms_id())));
-
-    std::shared_ptr<SEALCtxt> res =
-        std::dynamic_pointer_cast<SEALCtxt>(_context.encrypt(temp));
-    res->_name = _name + " * plaintext";
-    _internal_ctxt = res->sealCiphertext();
-    _context._evaluator->relinearize_inplace(_internal_ctxt,
-                                             _context.relinKeys());
-    _context._evaluator->rescale_to_next_inplace(_internal_ctxt);
-  }
-
-  SEALPtxt rescaled = ptxt->scaleToMatch(*this);
+void SEALCtxt::addInPlace(long other) {
+  std::vector<long> vec(_context.numberOfSlots(), other);
+  std::shared_ptr<SEALPtxt> ptxt =
+      std::dynamic_pointer_cast<SEALPtxt>(_context.encode(vec));
   try {
-    _context._evaluator->multiply_plain_inplace(_internal_ctxt,
-                                                rescaled.sealPlaintext());
-    // _context._evaluator->relinearize_inplace(_internal_ctxt,
-    //                                          _context.relinKeys());
-    _context._evaluator->rescale_to_next_inplace(_internal_ctxt);
-    count_ctxt_ptxt_mult();
+    _context._evaluator->add_plain_inplace(_internal_ctxt,
+                                           ptxt->sealPlaintext());
+    count_ctxt_ptxt_add();
   } catch (const std::exception& e) {
-    logComputationError(_internal_ctxt, rescaled.sealPlaintext(),
-                        "multInPlace(std::shared_ptr<HEPtxt>)", __FILE__,
-                        __LINE__, &e, &_context._internal_context);
+    logComputationError(_internal_ctxt, ptxt->sealPlaintext(),
+                        "addInPlace(long)", __FILE__, __LINE__, &e);
     throw;
   }
 }
 
-std::shared_ptr<HECtxt> SEALCtxt::operator*(long other) {
+std::shared_ptr<HECtxt> SEALCtxt::operator+(double other) {
   std::shared_ptr<SEALCtxt> result = std::make_shared<SEALCtxt>(
-      _name + " * " + std::to_string(other), _content_type, _context);
-  std::vector<long> vec(_context.numberOfSlots(), other);
-  std::shared_ptr<SEALPtxt> ptxt =
-      std::dynamic_pointer_cast<SEALPtxt>(_context.encode(vec));
-  result->multInPlace(ptxt);
-  count_ctxt_ptxt_mult();
-  return result;
-}
-
-void SEALCtxt::multInPlace(long other) {
-  std::vector<long> vec(_context.numberOfSlots(), other);
-  std::shared_ptr<SEALPtxt> ptxt =
-      std::dynamic_pointer_cast<SEALPtxt>(_context.encode(vec));
-  multInPlace(ptxt);
-  count_ctxt_ptxt_mult();
-}
-
-std::shared_ptr<HECtxt> SEALCtxt::operator*(double other) {
-  std::shared_ptr<SEALCtxt> result = std::make_shared<SEALCtxt>(
-      _name + " * " + std::to_string(other), _content_type, _context);
+      _name + " + " + std::to_string(other), _content_type, _context);
   std::vector<double> vec(_context.numberOfSlots(), other);
   std::shared_ptr<SEALPtxt> ptxt =
       std::dynamic_pointer_cast<SEALPtxt>(_context.encode(vec));
-  result->multInPlace(ptxt);
-  count_ctxt_ptxt_mult();
+  try {
+    _context._evaluator->add_plain(_internal_ctxt, ptxt->sealPlaintext(),
+                                   result->sealCiphertext());
+    count_ctxt_ptxt_add();
+  } catch (const std::exception& e) {
+    logComputationError(_internal_ctxt, ptxt->sealPlaintext(),
+                        "operator+(double)", __FILE__, __LINE__, &e);
+    throw;
+  }
   return result;
 }
 
-void SEALCtxt::multInPlace(double other) {
-  std::vector<long> vec(_context.numberOfSlots(), other);
+void SEALCtxt::addInPlace(double other) {
+  std::vector<double> vec(_context.numberOfSlots(), other);
   std::shared_ptr<SEALPtxt> ptxt =
       std::dynamic_pointer_cast<SEALPtxt>(_context.encode(vec));
-  multInPlace(ptxt);
+  try {
+    _context._evaluator->add_plain_inplace(_internal_ctxt,
+                                           ptxt->sealPlaintext());
+    count_ctxt_ptxt_add();
+  } catch (const std::exception& e) {
+    logComputationError(_internal_ctxt, ptxt->sealPlaintext(),
+                        "addInPlace(double)", __FILE__, __LINE__, &e);
+    throw;
+  }
 }
 
 // Rotation
