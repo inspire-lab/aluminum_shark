@@ -75,7 +75,7 @@ class SEALCtxt : public HECtxt {
   // SEAL specific API
   SEALCtxt(const std::string& name, CONTENT_TYPE content_type,
            const SEALContext& context);
-  SEALCtxt(seal::Ciphertext ctxt, const std::string& name,
+  SEALCtxt(seal::Ciphertext&& ctxt, const std::string& name,
            CONTENT_TYPE content_type, const SEALContext& context);
 
   seal::Ciphertext& sealCiphertext();
@@ -129,6 +129,8 @@ class SEALCtxt : public HECtxt {
     count_ctxt(1);
   };
 };
+
+void update_memory_manager(const std::string& group);
 
 }  // namespace aluminum_shark
 

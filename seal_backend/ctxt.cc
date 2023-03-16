@@ -11,6 +11,10 @@
 #include "utils.h"
 #include "utils/macros.h"
 
+// special values:
+//   0 : off
+//  -1 : off
+//  -2 : everyone gets their own mempool
 namespace {
 const int64_t agressive_memory_cleanup =
     std::getenv("ALUMINUM_SHARK_AGRESSIVE_MEMORY_CLEANUP") == nullptr
@@ -26,18 +30,32 @@ std::mutex memory_cleaunp_mutex;
 
 namespace aluminum_shark {
 
+// memory managment
+void update_memory_manager(const std::string& group) {
+  if (agressive_memory_cleanup == -2) {
+    seal::MemoryManager::SwitchProfile(std::make_unique<seal::MMProfNew>());
+    return;
+  }
+  AS_LOG_INFO << "creating new Memory Pool for " << group << std::endl;
+  seal::MemoryPoolHandle my_pool = seal::MemoryPoolHandle::New();
+  seal::MemoryManager::SwitchProfile(
+      std::make_unique<seal::MMProfFixed>(std::move(my_pool)));
+}
+
+// constructors
+
 SEALCtxt::SEALCtxt(const std::string& name, CONTENT_TYPE content_type,
                    const SEALContext& context)
-    : SEALCtxt(seal::Ciphertext(), name, content_type, context){};
+    : SEALCtxt(std::move(seal::Ciphertext()), name, content_type, context){};
 
-SEALCtxt::SEALCtxt(seal::Ciphertext ctxt, const std::string& name,
+SEALCtxt::SEALCtxt(seal::Ciphertext&& ctxt, const std::string& name,
                    CONTENT_TYPE content_type, const SEALContext& context)
     : _name(name),
       _content_type(content_type),
       _context(context),
-      _internal_ctxt(ctxt) {
+      _internal_ctxt(std::move(ctxt)) {
   count_ctxt(1);
-  if (agressive_memory_cleanup != 1) {
+  if (agressive_memory_cleanup > 0) {
     // check if we reached the threshold
     if (instance_counter > agressive_memory_cleanup) {
       // grab the lock and start the cleanup process
