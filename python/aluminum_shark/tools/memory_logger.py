@@ -166,8 +166,6 @@ class MemoryLogger(object):
     try:
       process_out, process_err = self.process.communicate(input=interupt_code)
       # read subprocess stdout
-      print(f'subprocess result: {process_out} {process_err}')
-      print(f'{type(process_out)}, {process_out}')
       self.result = json.loads(process_out)
     except Exception as e:
       print('stopping memory logger messed up. reason: ', e)
@@ -208,7 +206,10 @@ def process_task(pid: int, interval: float, history=False, to_file=False):
 
   def read():
     nonlocal vms, rss, rss_history, vms_history
-    pmem = psutil.Process(pid).memory_info()
+    try:
+      pmem = psutil.Process(pid).memory_info()
+    except:
+      return exit()
 
     vms = max(pmem.vms, vms)
     rss = max(pmem.rss, rss)
