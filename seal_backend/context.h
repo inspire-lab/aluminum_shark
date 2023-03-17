@@ -132,6 +132,8 @@ class SEALContext : public HEContext {
   virtual std::shared_ptr<HEPtxt> createPtxt(
       const std::vector<double>& vec) const;
 
+  std::shared_ptr<HEPtxt> createPtxt(std::vector<double>&& vec) const;
+
   // decoding
   virtual std::vector<long> decodeLong(std::shared_ptr<HEPtxt>) const override;
   virtual std::vector<double> decodeDouble(

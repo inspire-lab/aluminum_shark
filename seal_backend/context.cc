@@ -339,6 +339,14 @@ std::shared_ptr<HEPtxt> SEALContext::createPtxt(
   return ptxt;
 }
 
+std::shared_ptr<HEPtxt> SEALContext::createPtxt(
+    std::vector<double>&& vec) const {
+  std::shared_ptr<SEALPtxt> ptxt = std::make_shared<SEALPtxt>(
+      seal::Plaintext(), CONTENT_TYPE::DOUBLE, *this);
+  ptxt->double_values = vec;
+  return ptxt;
+}
+
 HE_SCHEME SEALContext::scheme() const {
   BACKEND_LOG << "getting scheme type: "
               << (is_ckks() ? HE_SCHEME::CKKS : HE_SCHEME::BFV) << std::endl;
@@ -357,8 +365,8 @@ std::vector<T> SEALContext::decode(const SEALPtxt& ptxt) const {
 }
 
 // since the definition is in the cpp we need to instantiate the use functions
-// explicitly. this is not a problem since we know what types they will be used
-// with.
+// explicitly. this is not a problem since we know what types they will be
+// used with.
 template <>
 std::vector<double> SEALContext::decode<double>(const SEALPtxt& ptxt) const {
   if (ptxt.double_values.size() != 0) {
