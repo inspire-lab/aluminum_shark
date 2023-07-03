@@ -150,7 +150,7 @@ class MemoryLogger(object):
         str(int(self.log_history)),
         str(int(self.to_file))
     ]
-    print('starting memory logger:', ' '.join(args))
+    # print('starting memory logger:', ' '.join(args))
     self.process = Popen(
         args,
         stdin=PIPE,

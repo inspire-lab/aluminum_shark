@@ -1,11 +1,12 @@
 import uuid
 import os
 import ctypes
-import tensorflow as tf
+# import tensorflow as tf
 from typing import Union, List, Iterable
 from inspect import currentframe, stack
 import numpy as np
 from aluminum_shark import config
+from aluminum_shark.c_arguments import aluminum_shark_Argument, get_argument_type
 import time
 import copy
 import datetime
@@ -39,17 +40,27 @@ def AS_LOG(*args, hex_pointers=True, log_level=WARNING, **kwargs):
 
 __DEFAULT_BACKEND__ = os.path.join(os.path.dirname(__file__),
                                    'aluminum_shark_seal.so')
+SEAL_BACKEND = os.path.join(os.path.dirname(__file__), 'aluminum_shark_seal.so')
+OPNEFHE_BACKEND = os.path.join(os.path.dirname(__file__),
+                               'aluminum_shark_openfhe.so')
 AS_LOG('default backend: ', __DEFAULT_BACKEND__)
 
 # get the tensorflow shared library path
-tf_dir = tf.__file__[:-12]  # strip away file name '__init__.py'
-tf_lib_path = config.PY_HANDLE_SHARED_LIB
-if not os.path.exists(tf_lib_path):
-  raise Exception('Unable to find TensorFlow shared library ' + tf_lib_path)
+so_path = config.current_config.PY_HANDLE_SHARED_LIB()
+if not os.path.exists(so_path):
+  raise Exception('Unable to find shared library ' + so_path)
 
 # load the library and functions
-tf_lib = ctypes.CDLL(tf_lib_path)
-AS_LOG("Wrapped TensorFlow library: " + tf_lib_path)
+python_api_lib = ctypes.CDLL(so_path)
+AS_LOG("Wrapped TensorFlow library: " + so_path)
+
+is_standalone = False
+try:
+  standalone_check = python_api_lib.aluminum_shark_isStandalone
+  standalone_check.restype = ctypes.c_bool
+  is_standalone = bool(standalone_check())
+except:
+  pass
 
 ############################
 # backend functions        #
@@ -76,114 +87,23 @@ AS_LOG("Wrapped TensorFlow library: " + tf_lib_path)
 #   size_t size_;
 # };
 
-
-def get_argument_type(obj):
-  if isinstance(obj, (int, np.integer)):
-    return 0
-  elif isinstance(obj, (float, np.floating)):
-    return 1
-  elif isinstance(obj, str):
-    return 2
-
-
-class aluminum_shark_Argument(ctypes.Structure):
-  _fields_ = [('name', ctypes.c_char_p), ('type', ctypes.c_uint),
-              ('is_array', ctypes.c_bool), ('int_', ctypes.c_long),
-              ('double_', ctypes.c_double), ('string_', ctypes.c_char_p),
-              ('array_', ctypes.c_void_p), ('size_', ctypes.c_size_t)]
-
-  def __init__(self, name, value) -> None:
-    # default values
-    name_ = name.encode('utf-8')
-    is_array = False
-    int_ = ctypes.c_long()
-    double_ = ctypes.c_double()
-    string_ = ctypes.c_char_p()
-    array_ = ctypes.c_void_p()
-    size_ = ctypes.c_size_t()
-
-    # check if we are dealing with a "basic type"
-    type_ = get_argument_type(value)
-
-    # single value
-    if type_ is not None:
-      # int
-      if type_ == 0:
-        int_ = ctypes.c_long(int(value))
-      # float
-      elif type_ == 1:
-        double_ = ctypes.c_double(float(value))
-      # string
-      elif type_ == 2:
-        string_ = value.encode('utf-8')
-
-    # possibly an array or something we can't handle
-    else:
-      # make sure that we deal with a list that has all the same type
-      types = [get_argument_type(x) for x in value]
-      # check that they are all the same
-      if len(set(types)) > 1:
-        raise ValueError("all list elments must have the same type")
-      type_ = types[0]
-      if type_ is None:
-        raise ValueError("Unsupported datatype ", type(value[0]))
-      # we are dealing with an array
-      is_array = True
-
-      # int
-      if type_ == 0:
-        ints = [int(x) for x in value]
-        array_t = ctypes.c_long * len(ints)
-        array_ = array_t(*ints)
-      # float
-      elif type_ == 1:
-        floats = [float(x) for x in value]
-        array_t = ctypes.c_double * len(floats)
-        array_ = array_t(*floats)
-      # string
-      elif type_ == 2:
-        strings = [x.encode('utf-8') for x in value]
-        array_t = ctypes.c_double * len(ctypes.c_char_p)
-        array_ = array_t(*strings)
-      else:
-        raise ValueError("unkown type ", type)
-
-      # set size and cast array_ to void*
-      size_ = ctypes.c_size_t(len(value))
-      array_ = ctypes.cast(array_, ctypes.c_void_p)
-
-    # set type_ and call the super constructor
-    type_ = ctypes.c_uint(type_)
-
-    super().__init__(name_, type_, is_array, int_, double_, string_, array_,
-                     size_)
-
-  def __str__(self) -> str:
-    s = self.__repr__() + '\n'
-    for f in self._fields_:
-      attr_name = f[0]
-      attr = getattr(self, attr_name)
-      s += '  ' + attr_name + ': ' + str(attr) + '\n'
-    return s
-
-
 # load and destroy backend
-load_backend_func = tf_lib.aluminum_shark_loadBackend
+load_backend_func = python_api_lib.aluminum_shark_loadBackend
 load_backend_func.argtypes = [ctypes.c_char_p]
 load_backend_func.restype = ctypes.c_void_p
 
-destroy_backend_func = tf_lib.aluminum_shark_destroyBackend
+destroy_backend_func = python_api_lib.aluminum_shark_destroyBackend
 destroy_backend_func.argtypes = [ctypes.c_void_p]
 
 # turn on the ressource monitoring
 # void aluminum_shark_enable_ressource_monitor(bool enable, void* backend_ptr);
-enable_ressource_monitor_func = tf_lib.aluminum_shark_enable_ressource_monitor
+enable_ressource_monitor_func = python_api_lib.aluminum_shark_enable_ressource_monitor
 enable_ressource_monitor_func.argtypes = [ctypes.c_bool, ctypes.c_void_p]
 
 # create and destroy context
 
 # ckks
-create_backend_ckks_func = tf_lib.aluminum_shark_CreateContextCKKS
+create_backend_ckks_func = python_api_lib.aluminum_shark_CreateContextCKKS
 create_backend_ckks_func.argtypes = [
     ctypes.c_size_t,  # poly_modulus_degree
     ctypes.POINTER(ctypes.c_int),  # a list containing the coeff_modulus
@@ -194,7 +114,7 @@ create_backend_ckks_func.argtypes = [
 create_backend_ckks_func.restype = ctypes.c_void_p
 
 # bfv
-create_backend_bfv_func = tf_lib.aluminum_shark_CreateContextBFV
+create_backend_bfv_func = python_api_lib.aluminum_shark_CreateContextBFV
 create_backend_bfv_func.argtypes = [
     ctypes.c_size_t,  # poly_modulus_degree
     ctypes.POINTER(ctypes.c_int),  # a list containing the coeff_modulus
@@ -206,13 +126,13 @@ create_backend_bfv_func.restype = ctypes.c_void_p
 
 # tfhe
 # TODO:
-create_backend_tfhe_func = tf_lib.aluminum_shark_CreateContextTFHE
+create_backend_tfhe_func = python_api_lib.aluminum_shark_CreateContextTFHE
 create_backend_tfhe_func.argtypes = [
     ctypes.c_void_p  # backend handle
 ]
 create_backend_tfhe_func.restype = ctypes.c_void_p
 
-create_backend_ckks_dynamic_func = tf_lib.aluminum_shark_CreateContextCKKS_dynamic
+create_backend_ckks_dynamic_func = python_api_lib.aluminum_shark_CreateContextCKKS_dynamic
 create_backend_ckks_dynamic_func.argtypes = [
     ctypes.POINTER(aluminum_shark_Argument),  # array of arguments
     ctypes.c_int,  # number of arguments
@@ -225,23 +145,23 @@ create_backend_ckks_dynamic_func.restype = ctypes.c_void_p
 ############################
 
 # key managment
-create_pub_key_func = tf_lib.aluminum_shark_CreatePublicKey
+create_pub_key_func = python_api_lib.aluminum_shark_CreatePublicKey
 create_pub_key_func.argtypes = [ctypes.c_void_p]
 
-create_priv_key_func = tf_lib.aluminum_shark_CreatePrivateKey
+create_priv_key_func = python_api_lib.aluminum_shark_CreatePrivateKey
 create_priv_key_func.argtypes = [ctypes.c_void_p]
 
 # TODO: saving and loading keys.
-save_pub_key_func = tf_lib.aluminum_shark_SavePublicKey
+save_pub_key_func = python_api_lib.aluminum_shark_SavePublicKey
 save_pub_key_func.argtypes = [ctypes.c_char_p, ctypes.c_void_p]
 
-save_priv_key_func = tf_lib.aluminum_shark_SavePrivateKey
+save_priv_key_func = python_api_lib.aluminum_shark_SavePrivateKey
 save_priv_key_func.argtypes = [ctypes.c_char_p, ctypes.c_void_p]
 
-load_pub_key_func = tf_lib.aluminum_shark_LoadPublicKey
+load_pub_key_func = python_api_lib.aluminum_shark_LoadPublicKey
 load_pub_key_func.argtypes = [ctypes.c_char_p, ctypes.c_void_p]
 
-load_priv_key_func = tf_lib.aluminum_shark_LoadPrivateKey
+load_priv_key_func = python_api_lib.aluminum_shark_LoadPrivateKey
 load_priv_key_func.argtypes = [ctypes.c_char_p, ctypes.c_void_p]
 
 # encryption and decryption
@@ -250,7 +170,7 @@ load_priv_key_func.argtypes = [ctypes.c_char_p, ctypes.c_void_p]
 # void* aluminum_shark_encryptLong(const long* values, int size, const char* name,
 #                                  const size_t* shape, int shape_size,
 #                                  const char* layout, void* context_ptr)
-encrypt_long_func = tf_lib.aluminum_shark_encryptLong
+encrypt_long_func = python_api_lib.aluminum_shark_encryptLong
 encrypt_long_func.argtypes = [
     ctypes.POINTER(ctypes.c_long),  # plaintexts
     ctypes.c_int,  # number of plaintexts
@@ -262,7 +182,7 @@ encrypt_long_func.argtypes = [
 ]
 encrypt_long_func.restype = ctypes.c_void_p
 
-decrypt_long_func = tf_lib.aluminum_shark_decryptLong
+decrypt_long_func = python_api_lib.aluminum_shark_decryptLong
 decrypt_long_func.argtypes = [
     ctypes.POINTER(ctypes.c_long),  # pointer to decrypted plain texts
     ctypes.c_void_p,  # ctxt handle
@@ -274,7 +194,7 @@ decrypt_long_func.argtypes = [
 #                                    const char* name, const size_t* shape,
 #                                    int shape_size, const char* layout,
 #                                    void* context_ptr)
-encrypt_double_func = tf_lib.aluminum_shark_encryptDouble
+encrypt_double_func = python_api_lib.aluminum_shark_encryptDouble
 encrypt_double_func.argtypes = [
     ctypes.POINTER(ctypes.c_double),  # plaintexts
     ctypes.c_int,  # number of plaintexts
@@ -286,20 +206,42 @@ encrypt_double_func.argtypes = [
 ]
 encrypt_double_func.restype = ctypes.c_void_p
 
-decrypt_double_func = tf_lib.aluminum_shark_decryptDouble
+# see if the api supports multithreaded encryption. only really needed in
+# standalone
+try:
+  # void aluminum_shark_encryptDouble_mt(const double* values, int size,
+  #                                    const char* name, const size_t* shape,
+  #                                    int shape_size, const char* layout_type,
+  #                                    void* return_array, void* context_ptr)
+  encrypt_double_func_mt = python_api_lib.aluminum_shark_encryptDouble_mt
+  encrypt_double_func_mt.argtypes = [
+      ctypes.POINTER(ctypes.c_double),  # plaintexts
+      ctypes.c_int,  # number of plaintexts
+      ctypes.c_char_p,  # name
+      ctypes.POINTER(ctypes.c_size_t),  # shape
+      ctypes.c_int,  # rank of the data
+      ctypes.c_char_p,  # layout 
+      ctypes.c_void_p,  # return array, needs to be inalized to hold the 
+      # ciphertext handles
+      ctypes.c_void_p  # context handle
+  ]
+except:
+  encrypt_double_func_mt = None
+
+decrypt_double_func = python_api_lib.aluminum_shark_decryptDouble
 decrypt_double_func.argtypes = [
     ctypes.POINTER(ctypes.c_double),  # plaintexts
     ctypes.c_void_p,  # ctxt handle
     ctypes.c_void_p  # context handle
 ]
 
-number_of_slots_func = tf_lib.aluminum_shark_numberOfSlots
+number_of_slots_func = python_api_lib.aluminum_shark_numberOfSlots
 number_of_slots_func.argtypes = [
     ctypes.c_void_p  # context handle
 ]
 number_of_slots_func.restype = ctypes.c_size_t
 
-destroy_context_func = tf_lib.aluminum_shark_DestroyContext
+destroy_context_func = python_api_lib.aluminum_shark_DestroyContext
 destroy_context_func.argtypes = [ctypes.c_void_p]
 
 ############################
@@ -321,19 +263,20 @@ monitor_value_callback_type = ctypes.CFUNCTYPE(None, ctypes.c_char_p,
                                                ctypes.c_double)
 monitor_progress_callback_type = ctypes.CFUNCTYPE(None, ctypes.c_char_p,
                                                   ctypes.c_bool)
-register_computation_func = tf_lib.aluminum_shark_RegisterComputation
-register_computation_func.argtypes = [
-    ctxt_callback_type, result_callback_type, monitor_value_callback_type,
-    monitor_progress_callback_type, ctypes.c_char_p, ctypes.c_bool
-]
-register_computation_func.restype = ctypes.c_void_p
+if not is_standalone:
+  register_computation_func = python_api_lib.aluminum_shark_RegisterComputation
+  register_computation_func.argtypes = [
+      ctxt_callback_type, result_callback_type, monitor_value_callback_type,
+      monitor_progress_callback_type, ctypes.c_char_p, ctypes.c_bool
+  ]
+  register_computation_func.restype = ctypes.c_void_p
 
 ############################
 # layout functions         #
 ############################
 
 # const char** aluminum_shark_GetAvailabeLayouts(size_t* size)
-get_avalailabe_layouts_func = tf_lib.aluminum_shark_GetAvailabeLayouts
+get_avalailabe_layouts_func = python_api_lib.aluminum_shark_GetAvailabeLayouts
 get_avalailabe_layouts_func.argtypes = [ctypes.POINTER(ctypes.c_size_t)]
 get_avalailabe_layouts_func.restype = ctypes.POINTER(ctypes.c_char_p)
 
@@ -341,14 +284,14 @@ get_avalailabe_layouts_func.restype = ctypes.POINTER(ctypes.c_char_p)
 # ciphertext functions     #
 ############################
 
-destroy_ctxt_func = tf_lib.aluminum_shark_DestroyCiphertext
+destroy_ctxt_func = python_api_lib.aluminum_shark_DestroyCiphertext
 destroy_ctxt_func.argtypes = [ctypes.c_void_p]
 
-get_ctxt_shape_len_func = tf_lib.aluminum_shark_GetCtxtShapeLen
+get_ctxt_shape_len_func = python_api_lib.aluminum_shark_GetCtxtShapeLen
 get_ctxt_shape_len_func.argtypes = [ctypes.c_void_p]
 get_ctxt_shape_len_func.restype = ctypes.c_size_t
 
-get_ctxt_shape_func = tf_lib.aluminum_shark_GetCtxtShape
+get_ctxt_shape_func = python_api_lib.aluminum_shark_GetCtxtShape
 get_ctxt_shape_func.argtypes = [
     ctypes.c_void_p, ctypes.POINTER(ctypes.c_size_t)
 ]
@@ -359,17 +302,17 @@ get_ctxt_shape_func.argtypes = [
 
 # turns logging on or off
 # void aluminum_shark_EnableLogging(bool on);
-enable_logging_func = tf_lib.aluminum_shark_EnableLogging
+enable_logging_func = python_api_lib.aluminum_shark_EnableLogging
 enable_logging_func.argtypes = [ctypes.c_bool]
 
 # sets the log level
 # void aluminum_shark_SetLogLevel(int level);
-set_log_level_func = tf_lib.aluminum_shark_SetLogLevel
+set_log_level_func = python_api_lib.aluminum_shark_SetLogLevel
 set_log_level_func.argtypes = [ctypes.c_int]
 
 # sets the backend log level
 # void aluminum_shark_SetBackendLogLevel(int level);
-set_backend_log_level_func = tf_lib.aluminum_shark_SetBackendLogLevel
+set_backend_log_level_func = python_api_lib.aluminum_shark_SetBackendLogLevel
 set_backend_log_level_func.argtypes = [ctypes.c_int, ctypes.c_void_p]
 
 
@@ -532,6 +475,7 @@ class EncryptedExecution(ObjectCleaner):
       self.context = context
 
       @tf.function(jit_compile=True)
+      @tf.autograph.experimental.do_not_convert
       def f(*args):
         return self.__model(*args)
 
@@ -698,7 +642,7 @@ class CipherText(ObjectCleaner):
     """
     super().destroy()
     if destroy_c_object:
-      tf_lib.aluminum_shark_DestroyCiphertext(self.__handle)
+      python_api_lib.aluminum_shark_DestroyCiphertext(self.__handle)
     self.__handle = None
 
   def register_object(self, object) -> None:
@@ -732,6 +676,56 @@ class Context(ObjectCleaner):
     self.__has_priv_key = False
     Context.context_map[handle] = self
     AS_LOG("Created Context", self)
+
+  def standalone_multithead_encryption(self, data):
+    if not is_standalone or encrypt_double_func_mt is None:
+      raise Exception(
+          'standalone_multithead_encryption not suppport by API implementaion')
+    if not isinstance(data, np.ndarray):
+      raise Exception(
+          'standalone_multithead_encryption only excepts numpy arrayys')
+    if len(data.shape) != 2:
+      raise Exception(
+          f'standalone_multithead_encryption needs exectly 2D data. Got shape {data.shape}'
+      )
+
+    # make sure data is in correct format
+    if not data.flags['C_CONTIGUOUS'] or data.dtype != np.double:
+      data = np.ascontiguousarray(data, dtype=np.double)
+
+    # format shape
+    shape_ptr = (ctypes.c_size_t * len(data.shape))(*data.shape)
+    shape_size = len(data.shape)
+
+    # encode strings:
+    # convert name
+    name_arg = 'ctxt'.encode('utf-8')
+    # convert layout to byte array. ignored atm
+    layout_c = ''.encode('utf-8')
+
+    # convert input to pointers
+    data_pointer = data.ctypes.data_as(ctypes.POINTER(ctypes.c_double))
+
+    # create return array
+    return_array = (ctypes.c_void_p *
+                    len(data))(*[ctypes.c_void_p() for _ in range(len(data))])
+
+    encrypt_double_func_mt(
+        data_pointer,  #data ptxt_ptr,
+        len(data),
+        name_arg,
+        shape_ptr,
+        shape_size,
+        layout_c,
+        return_array,
+        self.__handle)
+
+    ctxts = [
+        CipherText(handle=h, context=self, shape=data.shape[1], layout='batch')
+        for h in return_array
+    ]
+
+    return ctxts
 
   def encrypt(self,
               ptxt: List[Union[int, float]],
@@ -866,7 +860,7 @@ class Context(ObjectCleaner):
 
   def destroy(self) -> None:
     super().destroy()
-    tf_lib.aluminum_shark_DestroyContext(self.__handle)
+    python_api_lib.aluminum_shark_DestroyContext(self.__handle)
     self.__handle = None
 
   def __repr__(self) -> str:
