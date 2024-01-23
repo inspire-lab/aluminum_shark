@@ -13,13 +13,25 @@ namespace aluminum_shark {
 class SEALCtxt : public HECtxt {
  public:
   // Plugin API
-  virtual ~SEALCtxt() { count_ctxt(-1); };
+  virtual ~SEALCtxt() {
+    count_ctxt(-1);
+    // std::cout << "destroying " << _name
+    //           << " pool references: " << _internal_ctxt.pool().use_count()
+    //           << std::endl;
+    //  _internal_ctxt.pool()
+  };
 
   virtual std::string to_string() const override;
 
   virtual const HEContext* getContext() const override;
 
   virtual std::shared_ptr<HECtxt> deepCopy();
+
+  // returns information about the ctxt
+  std::string info() override {
+    return " pool references: " +
+           std::to_string(_internal_ctxt.pool().use_count());
+  };
 
   // arithmetic operations
 

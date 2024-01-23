@@ -22,46 +22,13 @@ class OpenFHEPtxt : public HEPtxt {
 
   virtual const HEContext* getContext() const override;
 
-  // Ptxt and Ptxt
-  // Addition
-  virtual HEPtxt* operator+(const HEPtxt* other) override;
-  virtual HEPtxt* addInPlace(const HEPtxt* other) override;
+  virtual std::shared_ptr<HEPtxt> deepCopy();
 
-  // Subtraction
-  virtual HEPtxt* operator-(const HEPtxt* other) override;
-  virtual HEPtxt* subInPlace(const HEPtxt* other) override;
+  // returns the size of the plaintext in bytes
+  virtual size_t size() override;
 
-  // Multiplication
-
-  virtual HEPtxt* operator*(const HEPtxt* other) override;
-  virtual HEPtxt* multInPlace(const HEPtxt* other) override;
-
-  //  plain and ctxt
-  // no inplace operations since they need to return a ctxt
-  virtual HECtxt* operator+(const HECtxt* other) override;
-  virtual HECtxt* operator-(const HECtxt* other) override;
-  virtual HECtxt* operator*(const HECtxt* other) override;
-
-  // integral types
-  // addition
-  virtual HEPtxt* operator+(long other) override;
-  virtual HEPtxt* addInPlace(long other) override;
-  virtual HEPtxt* operator+(double other) override;
-  virtual HEPtxt* addInPlace(double other) override;
-
-  // Subtraction
-  virtual HEPtxt* operator-(long other) override;
-  virtual HEPtxt* subInPlace(long other) override;
-  virtual HEPtxt* operator-(double other) override;
-  virtual HEPtxt* subInPlace(double other) override;
-
-  // multiplication
-  virtual HEPtxt* operator*(long other) override;
-  virtual HEPtxt* multInPlace(long other) override;
-  virtual HEPtxt* operator*(double other) override;
-  virtual HEPtxt* multInPlace(double other) override;
-
-  virtual HEPtxt* deepCopy();
+  // returns information about the ctxt
+  std::string info() override { return ""; };
 
   // openfhe specific API
   OpenFHEPtxt(lbcrypto::Plaintext ptxt, CONTENT_TYPE content_type,
@@ -96,42 +63,6 @@ class OpenFHEPtxt : public HEPtxt {
         _allOne(other._allOne) {
     count_ptxt(1);
   };
-
-  // // Performs the element wise operation given by `op` of this plain text and
-  // // the `other` and writes the result into `destination`
-  // template <class T>
-  // void operation(const SEALPtxt& other, const std::function<T(T, T)>& op,
-  //                std::vector<T>& destination) {
-  //   if (_content_type != other.content_type()) {
-  //     throw std::invalid_argument("Plaintexts must have the same encoding");
-  //   }
-  //   std::vector<T> own_content = _context.decode<T>(*this);
-  //   const SEALContext* other_context = (const
-  //   SEALContext*)(other.getContext()); std::vector<T> other_content =
-  //   other_context->decode<T>(other); if (own_content.size() !=
-  //   other_content.size()) {
-  //     throw std::invalid_argument("Plaintexts encode different batchsizes");
-  //   }
-  //   destination.reserve(own_content.size());
-  //   for (size_t i = 0; i < own_content.size(); ++i) {
-  //     destination[i] = op(own_content[i], other_content[i]);
-  //   }
-  // };
-
-  // // Performs the element wise operation given by `op` of this plain text and
-  // // `other` and writes the result into `destination`
-  // template <class T>
-  // void scalarOperation(T other, const std::function<T(T, T)>& op,
-  //                      std::vector<T>& destination) {
-  //   if (_content_type != type_to_content_type<T>()) {
-  //     throw std::invalid_argument("Plaintexts must have the same encoding");
-  //   }
-  //   std::vector<T> own_content = _context.decode<T>(*this);
-  //   destination.reserve(own_content.size());
-  //   for (size_t i = 0; i < own_content.size(); ++i) {
-  //     destination[i] = op(own_content[i], other);
-  //   }
-  // };
 };
 
 }  // namespace aluminum_shark

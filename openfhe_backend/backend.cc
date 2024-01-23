@@ -15,10 +15,9 @@ extern "C" {
 
 std::shared_ptr<aluminum_shark::HEBackend> createBackend() {
   aluminum_shark::set_log_prefix("OpenFHE Backend");
-  std::cout << "creatingbackend" << std::endl;
   AS_LOG_INFO << " Creating OpenFHEBackend " << std::endl;
-  std::shared_ptr<aluminum_shark::HEBackend> ptr(
-      new aluminum_shark::OpenFHEBackend());
+  std::shared_ptr<aluminum_shark::HEBackend> ptr =
+      std::make_unique<aluminum_shark::OpenFHEBackend>();
   AS_LOG_INFO << " Created OpenFHEBackend " << std::endl;
   return ptr;
 }
@@ -103,5 +102,8 @@ const API_VERSION& OpenFHEBackend::api_version() { return version_; }
 void OpenFHEBackend::set_log_level(int level) {
   ::aluminum_shark::set_log_level(level);
 }
+
+// monitor stuff
+const std::vector<std::string> OpenFHEMonitor::supported_values;
 
 }  // namespace aluminum_shark

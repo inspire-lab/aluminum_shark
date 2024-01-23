@@ -23,6 +23,11 @@ class SEALPtxt : public HEPtxt {
 
   virtual std::shared_ptr<HEPtxt> deepCopy();
 
+  virtual size_t size();
+
+  // returns information about the ctxt
+  std::string info() override { return ""; };
+
   // SEAL specific API
   SEALPtxt(seal::Plaintext ptxt, CONTENT_TYPE content_type,
            const SEALContext& context);

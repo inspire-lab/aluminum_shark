@@ -159,6 +159,8 @@ class SEALContext : public HEContext {
   const seal::RelinKeys& relinKeys() const;
   const seal::GaloisKeys& galoisKeys() const;
 
+  int64_t get_mem_mode() const { return memory_mode; };
+
  private:
   friend class SEALPtxt;
   friend class SEALCtxt;
@@ -183,6 +185,7 @@ class SEALContext : public HEContext {
   bool _is_bfv = false;
   size_t _slot_count;
   std::string _string_representation;
+  int64_t memory_mode;
 
   bool is_ckks() const;
   bool is_bfv() const;

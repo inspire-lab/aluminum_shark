@@ -38,6 +38,24 @@ std::string SEALPtxt::to_string() const { return placeholder; }
 
 const HEContext* SEALPtxt::getContext() const { return &_context; }
 
+size_t SEALPtxt::size() {
+  seal::Plaintext& ptxt = _internal_ptxt;
+  std::shared_ptr<HEPtxt> ptr;
+  if (ptxt.coeff_count() == 0) {
+    // plaintext is empty
+    ptr = _context.encode(double_values);
+    ptxt = std::dynamic_pointer_cast<SEALPtxt>(ptr)->sealPlaintext();
+  }
+  // time to calculate the size
+  // size of the coefficient modulus (number of primes) times the degree of the
+  // polynomial modulus.
+  auto parms =
+      _context._internal_context.get_context_data(ptxt.parms_id())->parms();
+  std::size_t coeff_modulus_size = parms.coeff_modulus().size();
+  std::size_t poly_modulus_degree = parms.poly_modulus_degree();
+  return coeff_modulus_size * poly_modulus_degree * 8;
+}
+
 SEALPtxt SEALPtxt::rescale(double scale) const {
   BACKEND_LOG << "resacling plaintext from "
               << std::log2(_internal_ptxt.scale()) << " to " << scale

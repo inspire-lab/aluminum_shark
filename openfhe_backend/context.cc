@@ -88,25 +88,25 @@ void OpenFHEContext::loadPrivateKey(const std::string& file) {
 
 // encryption Functions
 
-HECtxt* OpenFHEContext::encrypt(std::vector<long>& plain,
-                                const std::string name) const {
-  HEPtxt* ptxt = encode(plain);  // we own this memory now. need to delete it
-  HECtxt* ctxt_ptr = encrypt(ptxt, name);
-  delete ptxt;  // no longer need the plain text
+std::shared_ptr<HECtxt> OpenFHEContext::encrypt(std::vector<long>& plain,
+                                                const std::string name) const {
+  std::shared_ptr<HEPtxt> ptxt = encode(plain);
+  std::shared_ptr<HECtxt> ctxt_ptr = encrypt(ptxt, name);
   return ctxt_ptr;
 }
 
-HECtxt* OpenFHEContext::encrypt(std::vector<double>& plain,
-                                const std::string name) const {
-  HEPtxt* ptxt = encode(plain);  // we own this memory now. need to delete it
-  HECtxt* ctxt_ptr = encrypt(ptxt, name);
-  delete ptxt;  // no longer need the plain text
+std::shared_ptr<HECtxt> OpenFHEContext::encrypt(std::vector<double>& plain,
+                                                const std::string name) const {
+  std::shared_ptr<HEPtxt> ptxt = encode(plain);
+  std::shared_ptr<HECtxt> ctxt_ptr = encrypt(ptxt, name);
   return ctxt_ptr;
 }
 
-HECtxt* OpenFHEContext::encrypt(HEPtxt* ptxt, const std::string name) const {
-  OpenFHEPtxt* ofhe_ptxt = dynamic_cast<OpenFHEPtxt*>(ptxt);
-  OpenFHECtxt* ctxt_ptr = new OpenFHECtxt(
+std::shared_ptr<HECtxt> OpenFHEContext::encrypt(std::shared_ptr<HEPtxt> ptxt,
+                                                const std::string name) const {
+  std::shared_ptr<OpenFHEPtxt> ofhe_ptxt =
+      std::dynamic_pointer_cast<OpenFHEPtxt>(ptxt);
+  std::shared_ptr<OpenFHECtxt> ctxt_ptr = std::make_shared<OpenFHECtxt>(
       _internal_context->Encrypt(_pub_key, ofhe_ptxt->openFHEPlaintext()), name,
       ofhe_ptxt->content_type(), *this);
   return ctxt_ptr;
@@ -114,27 +114,34 @@ HECtxt* OpenFHEContext::encrypt(HEPtxt* ptxt, const std::string name) const {
 
 // decryption functions
 
-std::vector<long> OpenFHEContext::decryptLong(HECtxt* ctxt) const {
-  OpenFHECtxt* ofhe_ctxt = dynamic_cast<OpenFHECtxt*>(ctxt);
-  OpenFHEPtxt result(lbcrypto::Plaintext(), CONTENT_TYPE::LONG, *this);
+std::vector<long> OpenFHEContext::decryptLong(
+    std::shared_ptr<HECtxt> ctxt) const {
+  std::shared_ptr<OpenFHECtxt> ofhe_ctxt =
+      std::dynamic_pointer_cast<OpenFHECtxt>(ctxt);
+  std::shared_ptr<OpenFHEPtxt> result = std::make_shared<OpenFHEPtxt>(
+      lbcrypto::Plaintext(), CONTENT_TYPE::LONG, *this);
   _internal_context->Decrypt(_sec_key, ofhe_ctxt->openFHECiphertext(),
-                             &result.openFHEPlaintext());
-  return decodeLong(&result);
+                             &(result->openFHEPlaintext()));
+  return decodeLong(result);
 }
 
-std::vector<double> OpenFHEContext::decryptDouble(HECtxt* ctxt) const {
-  OpenFHECtxt* ofhe_ctxt = dynamic_cast<OpenFHECtxt*>(ctxt);
-  OpenFHEPtxt result(lbcrypto::Plaintext(), CONTENT_TYPE::DOUBLE, *this);
+std::vector<double> OpenFHEContext::decryptDouble(
+    std::shared_ptr<HECtxt> ctxt) const {
+  std::shared_ptr<OpenFHECtxt> ofhe_ctxt =
+      std::dynamic_pointer_cast<OpenFHECtxt>(ctxt);
+  std::shared_ptr<OpenFHEPtxt> result = std::make_shared<OpenFHEPtxt>(
+      lbcrypto::Plaintext(), CONTENT_TYPE::DOUBLE, *this);
   _internal_context->Decrypt(_sec_key, ofhe_ctxt->openFHECiphertext(),
-                             &result.openFHEPlaintext());
-  return decodeDouble(&result);
+                             &(result->openFHEPlaintext()));
+  return decodeDouble(result);
 }
 
 // Plaintext related
 
 // encoding
 
-HEPtxt* OpenFHEContext::encode(const std::vector<long>& plain) const {
+std::shared_ptr<HEPtxt> OpenFHEContext::encode(
+    const std::vector<long>& plain) const {
   if (is_ckks()) {
     std::vector<double> double_vec(plain.begin(), plain.end());
     return encode(double_vec);
@@ -143,20 +150,21 @@ HEPtxt* OpenFHEContext::encode(const std::vector<long>& plain) const {
   }
 }
 
-HEPtxt* OpenFHEContext::encode(const std::vector<double>& plain) const {
+std::shared_ptr<HEPtxt> OpenFHEContext::encode(
+    const std::vector<double>& plain) const {
   return encode_internal(plain);
 }
 
-HEPtxt* OpenFHEContext::encode_internal(const std::vector<long>& plain,
-                                        size_t noiseScaleDeg,
-                                        uint32_t level) const {
+std::shared_ptr<HEPtxt> OpenFHEContext::encode_internal(
+    const std::vector<long>& plain, size_t noiseScaleDeg,
+    uint32_t level) const {
   // BACKEND_LOG << "encoding plaintext with scale " << scale << std::endl;
   if (is_ckks()) {
     std::vector<double> double_vec(plain.begin(), plain.end());
     return encode_internal(double_vec, noiseScaleDeg, level);
   }
   // create plaintext
-  OpenFHEPtxt* ptxt_ptr = new OpenFHEPtxt(
+  std::shared_ptr<OpenFHEPtxt> ptxt_ptr = std::make_shared<OpenFHEPtxt>(
       _internal_context->MakePackedPlaintext(plain, noiseScaleDeg, level),
       CONTENT_TYPE::LONG, *this);
   // check if all values are one or zero
@@ -167,10 +175,10 @@ HEPtxt* OpenFHEContext::encode_internal(const std::vector<long>& plain,
   return ptxt_ptr;
 }
 
-HEPtxt* OpenFHEContext::encode_internal(const std::vector<double>& plain,
-                                        size_t noiseScaleDeg,
-                                        uint32_t level) const {
-  OpenFHEPtxt* ptxt_ptr = new OpenFHEPtxt(
+std::shared_ptr<HEPtxt> OpenFHEContext::encode_internal(
+    const std::vector<double>& plain, size_t noiseScaleDeg,
+    uint32_t level) const {
+  std::shared_ptr<OpenFHEPtxt> ptxt_ptr = std::make_shared<OpenFHEPtxt>(
       _internal_context->MakeCKKSPackedPlaintext(plain, noiseScaleDeg, level),
       CONTENT_TYPE::DOUBLE, *this);
 
@@ -193,23 +201,27 @@ void OpenFHEContext::encode(OpenFHEPtxt& ptxt, size_t noiseScaleDeg,
   }
 }
 
-HEPtxt* OpenFHEContext::createPtxt(const std::vector<long>& vec) const {
-  OpenFHEPtxt* ptxt =
-      new OpenFHEPtxt(lbcrypto::Plaintext(), CONTENT_TYPE::LONG, *this);
+std::shared_ptr<HEPtxt> OpenFHEContext::createPtxt(
+    const std::vector<long>& vec) const {
+  std::shared_ptr<OpenFHEPtxt> ptxt = std::make_shared<OpenFHEPtxt>(
+      lbcrypto::Plaintext(), CONTENT_TYPE::LONG, *this);
   ptxt->long_values = vec;
   return ptxt;
 }
 
-HEPtxt* OpenFHEContext::createPtxt(const std::vector<double>& vec) const {
-  OpenFHEPtxt* ptxt;
+std::shared_ptr<HEPtxt> OpenFHEContext::createPtxt(
+    const std::vector<double>& vec) const {
+  std::shared_ptr<OpenFHEPtxt> ptxt;
   if (vec.size() == 1) {
     std::vector<double> temp(_slot_count, vec[0]);
-    ptxt = new OpenFHEPtxt(_internal_context->MakeCKKSPackedPlaintext(temp),
-                           CONTENT_TYPE::DOUBLE, *this);
+    ptxt = std::make_shared<OpenFHEPtxt>(
+        _internal_context->MakeCKKSPackedPlaintext(temp), CONTENT_TYPE::DOUBLE,
+        *this);
     ptxt->double_values = temp;
   } else {
-    ptxt = new OpenFHEPtxt(_internal_context->MakeCKKSPackedPlaintext(vec),
-                           CONTENT_TYPE::DOUBLE, *this);
+    ptxt = std::make_shared<OpenFHEPtxt>(
+        _internal_context->MakeCKKSPackedPlaintext(vec), CONTENT_TYPE::DOUBLE,
+        *this);
     ptxt->double_values = vec;
   }
   return ptxt;
@@ -221,8 +233,10 @@ HE_SCHEME OpenFHEContext::scheme() const {
   return is_ckks() ? HE_SCHEME::CKKS : HE_SCHEME::BFV;
 }
 
-std::vector<long> OpenFHEContext::decodeLong(HEPtxt* ptxt) const {
-  OpenFHEPtxt* ofhe_ptxt = dynamic_cast<OpenFHEPtxt*>(ptxt);
+std::vector<long> OpenFHEContext::decodeLong(
+    std::shared_ptr<HEPtxt> ptxt) const {
+  std::shared_ptr<OpenFHEPtxt> ofhe_ptxt =
+      std::dynamic_pointer_cast<OpenFHEPtxt>(ptxt);
   std::vector<long> result;
   if (is_ckks()) {
     std::vector<double> double_vec = decodeDouble(ptxt);
@@ -236,8 +250,10 @@ std::vector<long> OpenFHEContext::decodeLong(HEPtxt* ptxt) const {
   return result;
 }
 
-std::vector<double> OpenFHEContext::decodeDouble(HEPtxt* ptxt) const {
-  OpenFHEPtxt* ofhe_ptxt = dynamic_cast<OpenFHEPtxt*>(ptxt);
+std::vector<double> OpenFHEContext::decodeDouble(
+    std::shared_ptr<HEPtxt> ptxt) const {
+  std::shared_ptr<OpenFHEPtxt> ofhe_ptxt =
+      std::dynamic_pointer_cast<OpenFHEPtxt>(ptxt);
   if (ofhe_ptxt->double_values.size() != 0) {
     return ofhe_ptxt->double_values;
   }

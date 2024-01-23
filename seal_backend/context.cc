@@ -92,6 +92,13 @@ SEALContext::SEALContext(seal::SEALContext context, const SEALBackend& backend,
     ss << "unknown scheme";
   }
   _string_representation = ss.str();
+
+  // update the memory manager
+  startNewGroup("default");
+  memory_mode =
+      std::getenv("ALUMINUM_SHARK_AGRESSIVE_MEMORY_CLEANUP") == nullptr
+          ? -1
+          : std::stoi(std::getenv("ALUMINUM_SHARK_AGRESSIVE_MEMORY_CLEANUP"));
 };
 
 bool SEALContext::is_ckks() const { return _is_ckks; }
@@ -161,8 +168,7 @@ void SEALContext::loadPrivateKey(const std::string& file) {
 // encryption Functions
 std::shared_ptr<HECtxt> SEALContext::encrypt(std::vector<long>& plain,
                                              const std::string name) const {
-  std::shared_ptr<HEPtxt> ptxt =
-      encode(plain);  // we own this memory now. need to delete it
+  std::shared_ptr<HEPtxt> ptxt = encode(plain);
   std::shared_ptr<HECtxt> ctxt_ptr = encrypt(ptxt, name);
   return ctxt_ptr;
 }
@@ -193,7 +199,8 @@ std::shared_ptr<HECtxt> SEALContext::encrypt(std::shared_ptr<HEPtxt> ptxt,
       std::dynamic_pointer_cast<SEALPtxt>(ptxt);
   std::shared_ptr<SEALCtxt> ctxt_ptr =
       std::make_shared<SEALCtxt>(name, seal_ptxt->content_type(), *this);
-  _encryptor->encrypt(seal_ptxt->sealPlaintext(), ctxt_ptr->sealCiphertext());
+  _encryptor->encrypt(seal_ptxt->sealPlaintext(), ctxt_ptr->sealCiphertext(),
+                      ctxt_ptr->sealCiphertext().pool());
   return ctxt_ptr;
 }
 
@@ -288,13 +295,22 @@ std::shared_ptr<HEPtxt> SEALContext::encode(const std::vector<double>& plain,
 #ifdef DEBUG_BUILD
   stream_vector(plain);
 #endif
-  std::shared_ptr<SEALPtxt> ptxt_ptr = std::make_shared<SEALPtxt>(
-      seal::Plaintext(), CONTENT_TYPE::DOUBLE, *this);
+  std::shared_ptr<SEALPtxt> ptxt_ptr;
+  if (memory_mode == -2) {
+    ptxt_ptr = std::make_shared<SEALPtxt>(
+        seal::Plaintext(seal::MemoryPoolHandle::New()), CONTENT_TYPE::DOUBLE,
+        *this);
+  } else {
+    ptxt_ptr = std::make_shared<SEALPtxt>(seal::Plaintext(),
+                                          CONTENT_TYPE::DOUBLE, *this);
+  }
 
   if (plain.size() == 1) {
-    _ckksencoder->encode(plain[0], params_id, scale, ptxt_ptr->sealPlaintext());
+    _ckksencoder->encode(plain[0], params_id, scale, ptxt_ptr->sealPlaintext(),
+                         ptxt_ptr->sealPlaintext().pool());
   } else {
-    _ckksencoder->encode(plain, params_id, scale, ptxt_ptr->sealPlaintext());
+    _ckksencoder->encode(plain, params_id, scale, ptxt_ptr->sealPlaintext(),
+                         ptxt_ptr->sealPlaintext().pool());
   }
   // check if all values are one or zero
   auto zero_one = all_zero_or_one(plain);
@@ -308,41 +324,64 @@ void SEALContext::encode(SEALPtxt& ptxt, seal::parms_id_type params_id,
   if (is_ckks()) {
     if (ptxt.double_values.size() == 1) {
       _ckksencoder->encode(ptxt.double_values[0], params_id, scale,
-                           ptxt._internal_ptxt);
+                           ptxt._internal_ptxt, ptxt.sealPlaintext().pool());
     } else {
       _ckksencoder->encode(ptxt.double_values, params_id, scale,
-                           ptxt._internal_ptxt);
+                           ptxt._internal_ptxt, ptxt.sealPlaintext().pool());
     }
   } else {
     if (ptxt.long_values.size() == 1) {
       _batchencoder->encode(std::vector<long>(ptxt.long_values[0], _slot_count),
-                            ptxt._internal_ptxt);
+                            ptxt._internal_ptxt, ptxt.sealPlaintext().pool());
     } else {
-      _batchencoder->encode(ptxt.long_values, ptxt._internal_ptxt);
+      _batchencoder->encode(ptxt.long_values, ptxt._internal_ptxt,
+                            ptxt.sealPlaintext().pool());
     }
   }
 }
 
 std::shared_ptr<HEPtxt> SEALContext::createPtxt(
     const std::vector<long>& vec) const {
-  std::shared_ptr<SEALPtxt> ptxt =
-      std::make_shared<SEALPtxt>(seal::Plaintext(), CONTENT_TYPE::LONG, *this);
+  std::shared_ptr<SEALPtxt> ptxt;
+  if (memory_mode == -2) {
+    ptxt = std::make_shared<SEALPtxt>(
+        seal::Plaintext(seal::MemoryPoolHandle::New()), CONTENT_TYPE::LONG,
+        *this);
+  } else {
+    ptxt = std::make_shared<SEALPtxt>(seal::Plaintext(), CONTENT_TYPE::LONG,
+                                      *this);
+  }
   ptxt->long_values = vec;
   return ptxt;
 }
 
 std::shared_ptr<HEPtxt> SEALContext::createPtxt(
     const std::vector<double>& vec) const {
-  std::shared_ptr<SEALPtxt> ptxt = std::make_shared<SEALPtxt>(
-      seal::Plaintext(), CONTENT_TYPE::DOUBLE, *this);
+  std::shared_ptr<SEALPtxt> ptxt;
+  if (memory_mode == -2) {
+    ptxt = std::make_shared<SEALPtxt>(
+        seal::Plaintext(seal::MemoryPoolHandle::New()), CONTENT_TYPE::DOUBLE,
+        *this);
+  } else {
+    ptxt = std::make_shared<SEALPtxt>(seal::Plaintext(), CONTENT_TYPE::DOUBLE,
+                                      *this);
+  }
+
   ptxt->double_values = vec;
   return ptxt;
 }
 
 std::shared_ptr<HEPtxt> SEALContext::createPtxt(
     std::vector<double>&& vec) const {
-  std::shared_ptr<SEALPtxt> ptxt = std::make_shared<SEALPtxt>(
-      seal::Plaintext(), CONTENT_TYPE::DOUBLE, *this);
+  std::shared_ptr<SEALPtxt> ptxt;
+  if (memory_mode == -2) {
+    ptxt = std::make_shared<SEALPtxt>(
+        seal::Plaintext(seal::MemoryPoolHandle::New()), CONTENT_TYPE::DOUBLE,
+        *this);
+  } else {
+    ptxt = std::make_shared<SEALPtxt>(seal::Plaintext(), CONTENT_TYPE::DOUBLE,
+                                      *this);
+  }
   ptxt->double_values = vec;
   return ptxt;
 }

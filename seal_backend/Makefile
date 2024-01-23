@@ -1,6 +1,7 @@
 SRC_DIR := .
 OBJ_DIR := obj
 COM_DIR := ../common
+SEAL_VERSION := 4.1
 COM_FILES := $(shell ls ../common/*.cc) 
 SRC_FILES := $(wildcard $(SRC_DIR)/*.cc)
 OBJ_FILES := $(patsubst $(SRC_DIR)/%.cc,$(OBJ_DIR)/%.o,$(SRC_FILES))
@@ -9,11 +10,11 @@ OBJ_FILES += $(patsubst $(COM_DIR)/%.cc,$(OBJ_DIR)/%.o,$(COM_FILES))
 LDFLAGS := -shared -std=c++17
 # CPPFLAGS := ...
 CXXFLAGS := -O0 -g3 -Wall -shared -std=c++17 -fPIC
-INCLUDES := -I../dependencies/SEAL/bin/include/SEAL-3.7/ 
+INCLUDES := -I../dependencies/SEAL/bin/include/SEAL-$(SEAL_VERSION)/ 
 INCLUDES += -I../dependencies/tensorflow/tensorflow/compiler/plugin/aluminum_shark 
 INCLUDES += -I../dependencies/tensorflow/
 INCLUDES += -I$(COM_DIR)
-LIBS := ../dependencies/SEAL/bin/lib/libseal-3.7.a
+LIBS := ../dependencies/SEAL/bin/lib/libseal-$(SEAL_VERSION).a
 
 
 aluminum_shark_seal.so: $(OBJ_FILES)  $(OBJ_DIR)/logging.o $(OBJ_DIR)/utils.o $(OBJ_DIR)/arg_utils.o

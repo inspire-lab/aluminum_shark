@@ -61,6 +61,55 @@ HEContext* SEALBackend::createContextCKKS_internal(
 
   SEALContext* context_ptr =
       new SEALContext(seal::SEALContext(params), *this, scale, galois_keys);
+
+  std::stringstream ss;
+  auto& context_data = *(context_ptr->context().key_context_data());
+
+  /*
+  Which scheme are we using?
+  */
+  std::string scheme_name;
+  switch (context_data.parms().scheme()) {
+    case seal::scheme_type::bfv:
+      scheme_name = "BFV";
+      break;
+    case seal::scheme_type::ckks:
+      scheme_name = "CKKS";
+      break;
+    default:
+      throw std::invalid_argument("unsupported scheme");
+  }
+  ss << "\n/" << std::endl;
+  ss << "| Encryption parameters :" << std::endl;
+  ss << "|   scheme: " << scheme_name << std::endl;
+  ss << "|   poly_modulus_degree: "
+     << context_data.parms().poly_modulus_degree() << std::endl;
+
+  /*
+  Print the size of the true (product) coefficient modulus.
+  */
+  ss << "|   coeff_modulus size: ";
+  ss << context_data.total_coeff_modulus_bit_count() << " (";
+  auto _coeff_modulus = context_data.parms().coeff_modulus();
+  std::size_t coeff_modulus_size = _coeff_modulus.size();
+  for (std::size_t i = 0; i < coeff_modulus_size - 1; i++) {
+    ss << _coeff_modulus[i].bit_count() << " + ";
+  }
+  ss << _coeff_modulus.back().bit_count();
+  ss << ") bits" << std::endl;
+
+  /*
+  For the BFV scheme print the plain_modulus parameter.
+  */
+  if (context_data.parms().scheme() == seal::scheme_type::bfv) {
+    ss << "|   plain_modulus: " << context_data.parms().plain_modulus().value()
+       << std::endl;
+  }
+
+  ss << "\\" << std::endl;
+
+  AS_LOG_INFO << ss.str();
+
   return context_ptr;
 }
 
@@ -72,8 +121,8 @@ HEContext* SEALBackend::createContextCKKS(size_t poly_modulus_degree,
 
 HEContext* SEALBackend::createContextCKKS(
     std::vector<aluminum_shark_Argument> arguments) {
-  AS_LOG_INFO << "Creating Context. Arguments\n"
-              << args_to_string(arguments) << std::endl;
+  AS_LOG_DEBUG << "Creating Context. Arguments\n"
+               << args_to_string(arguments) << std::endl;
 
   size_t poly_modulus_degree = 0;
   std::vector<int> coeff_modulus;
@@ -85,19 +134,19 @@ HEContext* SEALBackend::createContextCKKS(
     AS_LOG_DEBUG << "Processing argument: " << name << " type: " << arg.type
                  << " is_ array: " << arg.is_array << std::endl;
     if (std::strcmp(name, "poly_modulus_degree") == 0) {
-      if (arg.type != 0 || arg.array_) {
+      if (arg.type != 0 || arg.is_array) {
         AS_LOG_CRITICAL << name << " needs to be scalar int" << std::endl;
       }
       poly_modulus_degree = arg.int_;
       continue;
     } else if (std::strcmp(name, "scale") == 0) {
-      if (arg.type != 1 || arg.array_) {
+      if (arg.type != 1 || arg.is_array) {
         AS_LOG_CRITICAL << name << " needs to be scalar doulbe" << std::endl;
       }
       scale = arg.double_;
       continue;
     } else if (std::strcmp(name, "coeff_modulus") == 0) {
-      if (arg.type != 0 || !arg.array_) {
+      if (arg.type != 0 || !arg.is_array) {
         AS_LOG_CRITICAL << name << " needs to be int array" << std::endl;
       }
       long* arr = reinterpret_cast<long*>(arg.array_);
@@ -106,7 +155,7 @@ HEContext* SEALBackend::createContextCKKS(
       }
       continue;
     } else if (std::strcmp(name, "galois_keys") == 0) {
-      if (arg.type != 0 || arg.array_) {
+      if (arg.type != 0 || arg.is_array) {
         AS_LOG_CRITICAL << name << " needs to be scalar int" << std::endl;
       }
       galois_keys = arg.int_ != 0;

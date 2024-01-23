@@ -74,38 +74,57 @@ class OpenFHEContext : public HEContext {
   // Ciphertext related
 
   // encryption Functions
-  virtual HECtxt* encrypt(std::vector<long>& plain,
-                          const std::string name = "") const override;
-  virtual HECtxt* encrypt(std::vector<double>& plain,
-                          const std::string name = "") const override;
-  virtual HECtxt* encrypt(HEPtxt* ptxt,
-                          const std::string name = "") const override;
+  virtual std::shared_ptr<HECtxt> encrypt(
+      std::vector<long>& plain, const std::string name = "") const override;
+  virtual std::shared_ptr<HECtxt> encrypt(
+      std::vector<double>& plain, const std::string name = "") const override;
+  virtual std::shared_ptr<HECtxt> encrypt(
+      std::shared_ptr<HEPtxt> ptxt, const std::string name = "") const override;
 
   // decryption functions
-  virtual std::vector<long> decryptLong(HECtxt* ctxt) const override;
-  virtual std::vector<double> decryptDouble(HECtxt* ctxt) const override;
+  virtual std::vector<long> decryptLong(
+      std::shared_ptr<HECtxt> ctxt) const override;
+  virtual std::vector<double> decryptDouble(
+      std::shared_ptr<HECtxt> ctxt) const override;
   // these just forward to decode
-  virtual std::vector<long> decryptLong(HEPtxt* ptxt) const override {
+  virtual std::vector<long> decryptLong(
+      std::shared_ptr<HEPtxt> ptxt) const override {
     return decodeLong(ptxt);
   }
-  virtual std::vector<double> decryptDouble(HEPtxt* ptxt) const override {
+  virtual std::vector<double> decryptDouble(
+      std::shared_ptr<HEPtxt> ptxt) const override {
     return decodeDouble(ptxt);
   }
 
   // Plaintext related
 
   // encoding
-  virtual HEPtxt* encode(const std::vector<long>& plain) const override;
-  virtual HEPtxt* encode(const std::vector<double>& plain) const override;
+  virtual std::shared_ptr<HEPtxt> encode(
+      const std::vector<long>& plain) const override;
+  virtual std::shared_ptr<HEPtxt> encode(
+      const std::vector<double>& plain) const override;
 
-  virtual HEPtxt* createPtxt(const std::vector<long>& vect) const;
-  virtual HEPtxt* createPtxt(const std::vector<double>& vec) const;
+  virtual std::shared_ptr<HEPtxt> createPtxt(
+      const std::vector<long>& vect) const;
+  virtual std::shared_ptr<HEPtxt> createPtxt(
+      const std::vector<double>& vec) const;
+
+  virtual std::shared_ptr<HEPtxt> createPtxt(
+      std::vector<double>&& vec) const override {
+    std::vector<double> temp = vec;
+    return createPtxt(temp);
+  };
 
   // decoding
-  virtual std::vector<long> decodeLong(HEPtxt*) const override;
-  virtual std::vector<double> decodeDouble(HEPtxt*) const override;
+  virtual std::vector<long> decodeLong(std::shared_ptr<HEPtxt>) const override;
+  virtual std::vector<double> decodeDouble(
+      std::shared_ptr<HEPtxt>) const override;
 
   virtual HE_SCHEME scheme() const override;
+
+  virtual void startNewGroup(const std::string& name) const override{
+      // ignored in openFHE atm
+  };
 
   // OpenFHE specific API
   OpenFHEContext(lbcrypto::CryptoContext<lbcrypto::DCRTPoly> context,
@@ -134,10 +153,12 @@ class OpenFHEContext : public HEContext {
   void encode(OpenFHEPtxt& ptxt, size_t noiseScaleDeg = 1,
               uint32_t level = 0) const;
 
-  HEPtxt* encode_internal(const std::vector<long>& plain,
-                          size_t noiseScaleDeg = 1, uint32_t level = 0) const;
-  HEPtxt* encode_internal(const std::vector<double>& plain,
-                          size_t noiseScaleDeg = 1, uint32_t level = 0) const;
+  std::shared_ptr<HEPtxt> encode_internal(const std::vector<long>& plain,
+                                          size_t noiseScaleDeg = 1,
+                                          uint32_t level = 0) const;
+  std::shared_ptr<HEPtxt> encode_internal(const std::vector<double>& plain,
+                                          size_t noiseScaleDeg = 1,
+                                          uint32_t level = 0) const;
 
  private:
   friend class OpenFHEPtxt;

@@ -22,115 +22,15 @@ std::string OpenFHEPtxt::to_string() const { return "this is a plaintext"; }
 
 const HEContext* OpenFHEPtxt::getContext() const { return &_context; }
 
-// Ptxt and Ptxt
-// Addition
-
-HEPtxt* OpenFHEPtxt::operator+(const HEPtxt* other) {
-  throw std::runtime_error("not implemented");
+std::shared_ptr<HEPtxt> OpenFHEPtxt::deepCopy() {
+  OpenFHEPtxt* raw = new OpenFHEPtxt(*this);
+  // std::shared_ptr<OpenFHEPtxt> result = std::make_shared<OpenFHEPtxt>(*this);
+  return std::shared_ptr<OpenFHEPtxt>(raw);
 }
 
-HEPtxt* OpenFHEPtxt::addInPlace(const HEPtxt* other) {
-  throw std::runtime_error("not implemented");
-}
-
-// Subtraction
-
-HEPtxt* OpenFHEPtxt::operator-(const HEPtxt* other) {
-  throw std::runtime_error("not implemented");
-}
-
-HEPtxt* OpenFHEPtxt::subInPlace(const HEPtxt* other) {
-  throw std::runtime_error("not implemented");
-}
-
-// Multiplication
-
-HEPtxt* OpenFHEPtxt::operator*(const HEPtxt* other) {
-  throw std::runtime_error("not implemented");
-}
-
-HEPtxt* OpenFHEPtxt::multInPlace(const HEPtxt* other) {
-  throw std::runtime_error("not implemented");
-}
-
-//  plain and ctxt
-// no inplace operations since they need to return a ctxt
-// Addition
-
-HECtxt* OpenFHEPtxt::operator+(const HECtxt* other) {
-  throw std::runtime_error("not implemented");
-}
-
-// Subtraction
-
-HECtxt* OpenFHEPtxt::operator-(const HECtxt* other) {
-  throw std::runtime_error("not implemented");
-}
-
-// Multiplication
-
-HECtxt* OpenFHEPtxt::operator*(const HECtxt* other) {
-  throw std::runtime_error("not implemented");
-}
-
-// integral types
-// addition
-
-HEPtxt* OpenFHEPtxt::operator+(long other) {
-  throw std::runtime_error("not implemented");
-}
-
-HEPtxt* OpenFHEPtxt::addInPlace(long other) {
-  throw std::runtime_error("not implemented");
-}
-
-HEPtxt* OpenFHEPtxt::operator+(double other) {
-  throw std::runtime_error("not implemented");
-}
-
-HEPtxt* OpenFHEPtxt::addInPlace(double other) {
-  throw std::runtime_error("not implemented");
-}
-
-// Subtraction
-
-HEPtxt* OpenFHEPtxt::operator-(long other) {
-  throw std::runtime_error("not implemented");
-}
-
-HEPtxt* OpenFHEPtxt::subInPlace(long other) {
-  throw std::runtime_error("not implemented");
-}
-
-HEPtxt* OpenFHEPtxt::operator-(double other) {
-  throw std::runtime_error("not implemented");
-}
-
-HEPtxt* OpenFHEPtxt::subInPlace(double other) {
-  throw std::runtime_error("not implemented");
-}
-
-// multiplication
-
-HEPtxt* OpenFHEPtxt::operator*(long other) {
-  throw std::runtime_error("not implemented");
-}
-
-HEPtxt* OpenFHEPtxt::multInPlace(long other) {
-  throw std::runtime_error("not implemented");
-}
-
-HEPtxt* OpenFHEPtxt::operator*(double other) {
-  throw std::runtime_error("not implemented");
-}
-
-HEPtxt* OpenFHEPtxt::multInPlace(double other) {
-  throw std::runtime_error("not implemented");
-}
-
-HEPtxt* OpenFHEPtxt::deepCopy() {
-  OpenFHEPtxt* result = new OpenFHEPtxt(*this);
-  return result;
+size_t OpenFHEPtxt::size() {
+  // TODO:
+  return 0;
 }
 
 bool OpenFHEPtxt::isAllZero() const { return _allZero; }

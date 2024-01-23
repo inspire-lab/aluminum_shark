@@ -21,6 +21,10 @@ seal_test:
 	@echo compiling $@
 	c++  $(CPPFLAGS) $(INCLUDES) -o $@ $@.cc $(LIBS)
 
+size_test:
+	@echo compiling $@
+	c++  $(CPPFLAGS) $(INCLUDES) -o $@ $@.cc $(LIBS)
+
 py_handle_test: $(OBJ_FILES) $(OBJ_DIR)/py_handle_test.o
 	@echo linking $@
 	c++ --std=c++17 -O0 -g3 $^ -ldl -o $@

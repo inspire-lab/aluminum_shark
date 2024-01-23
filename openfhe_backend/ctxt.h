@@ -18,48 +18,59 @@ class OpenFHECtxt : public HECtxt {
 
   virtual const HEContext* getContext() const override;
 
-  virtual HECtxt* deepCopy();
+  virtual std::shared_ptr<HECtxt> deepCopy();
+
+  // returns information about the ctxt
+  std::string info() override { return ""; };
 
   // arithmetic operations
 
   // ctxt and ctxt
-  virtual HECtxt* operator+(const HECtxt* other) override;
-  virtual HECtxt* addInPlace(const HECtxt* other) override;
-  virtual HECtxt* operator-(const HECtxt* other) override;
-  virtual HECtxt* subInPlace(const HECtxt* other) override;
-  virtual HECtxt* operator*(const HECtxt* other) override;
-  virtual HECtxt* multInPlace(const HECtxt* other) override;
+  virtual std::shared_ptr<HECtxt> operator+(
+      const std::shared_ptr<HECtxt> other) override;
+  virtual void addInPlace(const std::shared_ptr<HECtxt> other) override;
+  virtual std::shared_ptr<HECtxt> operator-(
+      const std::shared_ptr<HECtxt> other) override;
+  virtual void subInPlace(const std::shared_ptr<HECtxt> other) override;
+  virtual std::shared_ptr<HECtxt> operator*(
+      const std::shared_ptr<HECtxt> other) override;
+  virtual void multInPlace(const std::shared_ptr<HECtxt> other) override;
 
   // ctxt and plain
 
   // addition
-  virtual HECtxt* operator+(HEPtxt* other) override;
-  virtual HECtxt* addInPlace(HEPtxt* other) override;
-  virtual HECtxt* operator+(long other) override;
-  virtual HECtxt* addInPlace(long other) override;
-  virtual HECtxt* operator+(double other) override;
-  virtual HECtxt* addInPlace(double other) override;
+  virtual std::shared_ptr<HECtxt> operator+(
+      std::shared_ptr<HEPtxt> other) override;
+  virtual void addInPlace(std::shared_ptr<HEPtxt> other) override;
+  virtual std::shared_ptr<HECtxt> operator+(long other) override;
+  virtual void addInPlace(long other) override;
+  virtual std::shared_ptr<HECtxt> operator+(double other) override;
+  virtual void addInPlace(double other) override;
 
   // subtraction
-  virtual HECtxt* operator-(HEPtxt* other) override;
-  virtual HECtxt* subInPlace(HEPtxt* other) override;
-  virtual HECtxt* operator-(long other) override;
-  virtual HECtxt* subInPlace(long other) override;
-  virtual HECtxt* operator-(double other) override;
-  virtual HECtxt* subInPlace(double other) override;
+  virtual std::shared_ptr<HECtxt> operator-(
+      std::shared_ptr<HEPtxt> other) override;
+  virtual void subInPlace(std::shared_ptr<HEPtxt> other) override;
+  virtual std::shared_ptr<HECtxt> operator-(long other) override;
+  virtual void subInPlace(long other) override;
+  virtual std::shared_ptr<HECtxt> operator-(double other) override;
+  virtual void subInPlace(double other) override;
 
   // multiplication
-  virtual HECtxt* operator*(HEPtxt* other) override;
-  virtual HECtxt* multInPlace(HEPtxt* other) override;
-  virtual HECtxt* operator*(long other) override;
-  virtual HECtxt* multInPlace(long other) override;
-  virtual HECtxt* operator*(double other) override;
-  virtual HECtxt* multInPlace(double other) override;
+  virtual std::shared_ptr<HECtxt> operator*(
+      std::shared_ptr<HEPtxt> other) override;
+  virtual void multInPlace(std::shared_ptr<HEPtxt> other) override;
+  virtual std::shared_ptr<HECtxt> operator*(long other) override;
+  virtual void multInPlace(long other) override;
+  virtual std::shared_ptr<HECtxt> operator*(double other) override;
+  virtual void multInPlace(double other) override;
 
   // Rotation
-  virtual HECtxt* rotate(int steps);
+  virtual std::shared_ptr<HECtxt> rotate(int steps);
 
-  virtual HECtxt* rotInPlace(int steps);
+  virtual void rotInPlace(int steps);
+
+  virtual size_t size() override;
 
   // OpenFHE specific API
   OpenFHECtxt(const std::string& name, CONTENT_TYPE content_type,

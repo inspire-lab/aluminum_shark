@@ -15,6 +15,27 @@ std::shared_ptr<aluminum_shark::HEBackend> createBackend();
 }  // extern "C"
 namespace aluminum_shark {
 
+// not fully implemented. does nothhing atm
+class OpenFHEMonitor : public Monitor {
+ public:
+  // retrieves the value specified by name and writes it into value, returns
+  // false if the value is not logged or unsoproted;
+  bool get(const std::string& name, double& value) override { return false; };
+
+  // can be used to iterate over all logged valued by this monitor. puts the
+  // name of the value into `name` and the value into `value`. Returns false if
+  // there are no more values. Calling it again after that restarts
+  bool get_next(std::string& name, double& value) override { return false; };
+
+  // returns a list of all values supported by this monitor
+  const std::vector<std::string>& values() override {
+    return supported_values;
+  };
+
+ private:
+  static const std::vector<std::string> supported_values;
+};
+
 class OpenFHEBackend : public HEBackend {
  public:
   OpenFHEBackend() : version_(API_VERSION()){};
@@ -36,6 +57,16 @@ class OpenFHEBackend : public HEBackend {
   virtual const API_VERSION& api_version() override;
 
   virtual void set_log_level(int level) override;
+
+  std::shared_ptr<Monitor> enable_ressource_monitor(
+      bool enable) const override {
+    return std::make_shared<OpenFHEMonitor>();
+  };
+
+  std::shared_ptr<Monitor> get_ressource_monitor() const override {
+    return std::make_shared<OpenFHEMonitor>();
+  };
+  ;
 
  private:
   const API_VERSION version_;
