@@ -3,14 +3,14 @@ Privacy Preserving Neural Networks with TensorFlow und Homomorphic Encryption
 
 Currently only works on Linux. Tested on Ubunut 20.04
 
-# Creating a conda environment with Alumnium Shark binaries installed
+## Creating a conda environment with Alumnium Shark binaries installed
+
+The easist ways is to use our prebuilt binaries. 
 
 1. Clone the Repository 
-2. Replace the first line in `tools/token.txt` with your GitHub access token. BE
-   CAREFULL TO NEVER COMMIT YOUR TOKEN!!
-3. Run `tools/install_conda_environment.sh <dir>`. Replace `<dir>` with the path
+2. Run `tools/install_conda_environment.sh <dir>`. Replace `<dir>` with the path
    to where the conda environment should be installed.
-4. Activate the environment by running `conda activate <dir>` (Note: `<dir>` 
+3. Activate the environment by running `conda activate <dir>` (Note: `<dir>` 
    needs to be the absoultue path to the installed environment)
 
 Requirements:
@@ -20,26 +20,42 @@ Requirements:
  - conda (anaconda3 or miniconda3)
 
 
-# Getting started and build instrcutions
+## Build it yourself
 
-First step: clone this repo
+To build the code yourself you the following:
+ - bazel to build TensorFlow (https://bazel.build)
+ - CMake to build OpenFHE and SEAL (https://cmake.org)
+ - Python 3 with numpy (needs to be usable as `python` not `python3`)
+ - git
 
-## Fetching dependencies 
+Unless specified otherwise all paths are relative to the project root.
 
-To download the dependencies run:
+### Fetching dependencies 
+
+First we need to download and build the depencies. To download the dependencies 
+run:
 
 ```
 ./fetch_dependencies.sh
 ```
 
-## Building dependencies 
+### Building dependencies 
 
-### Building Tensorflow
+#### Building Custom TensorFlow
 
-Go to `dependencies/tensorflow` and follow the instructions from the official TensorFlow site: https://tensorflow.org/install/source 
-You can skip the GPU instructions and downloading the source.
+We need a custom TensorFlow that can run on encyrpted data. It is automatically
+downloaded with the script from the last step.
+Go to `dependencies/tensorflow` and run 
+```
+./build_and_install.sh
+```
+This can take quite a long time to build. You can specify the number of build 
+jobs, e.g. when to use 10 run:
+```
+./build_and_install.sh 10
+```
 
-### Building SEAL
+#### Building SEAL and the SEAL backend
 
 Go to `dependencies/SEAL` and build SEAL by running:
 
@@ -50,19 +66,39 @@ cmake --build build
 cmake --install build
 ```
 
-### Building the SEAL backend
 
-From `seal_backend` run
+Next we need to build the SEAL backend. From `seal_backend` run
 ```
 make && make install
 ```
 
-# Installing Aluminum Shark
+#### Building OpenFHE and the OPENFHE backend
 
-From the project root run:
+Go to `dependencies/openfhe_development` and build OpenFHE by running:
 
 ```
-python3 -m pip install -e .
+mkdir build
+mkdir bin
+cd build
+cmake -DCMAKE_INSTALL_PREFIX=../bin -DBUILD_STATIC=ON  -DBUILD_UNITTESTS=OFF -DBUILD_EXAMPLES=OFF -DBUILD_BENCHMARKS=OFF -DWITH_NATIVEOPT=ON -DWITH_OPENMP=OFF ..
+make
+make install
 ```
 
+Next we need to build the OpenFHE backend. From `openfhe_backend` run
+```
+make && make install
+```
 
+#### Installing Aluminum Shark
+
+Finally, from the project root run:
+
+```
+python -m pip install -e .
+```
+
+# Run the Example Code
+
+There is a simple example in `examples`. It runs a simple neural network over 
+encrypted data. 

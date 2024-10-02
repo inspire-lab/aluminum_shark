@@ -332,10 +332,9 @@ void SEALContext::encode(SEALPtxt& ptxt, seal::parms_id_type params_id,
   } else {
     if (ptxt.long_values.size() == 1) {
       _batchencoder->encode(std::vector<long>(ptxt.long_values[0], _slot_count),
-                            ptxt._internal_ptxt, ptxt.sealPlaintext().pool());
+                            ptxt._internal_ptxt);
     } else {
-      _batchencoder->encode(ptxt.long_values, ptxt._internal_ptxt,
-                            ptxt.sealPlaintext().pool());
+      _batchencoder->encode(ptxt.long_values, ptxt._internal_ptxt);
     }
   }
 }

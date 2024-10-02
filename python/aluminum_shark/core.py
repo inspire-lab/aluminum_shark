@@ -1,7 +1,7 @@
 import uuid
 import os
 import ctypes
-# import tensorflow as tf
+import tensorflow as tf
 from typing import Union, List, Iterable
 from inspect import currentframe, stack
 import numpy as np
@@ -41,7 +41,7 @@ def AS_LOG(*args, hex_pointers=True, log_level=WARNING, **kwargs):
 __DEFAULT_BACKEND__ = os.path.join(os.path.dirname(__file__),
                                    'aluminum_shark_seal.so')
 SEAL_BACKEND = os.path.join(os.path.dirname(__file__), 'aluminum_shark_seal.so')
-OPNEFHE_BACKEND = os.path.join(os.path.dirname(__file__),
+OPENFHE_BACKEND = os.path.join(os.path.dirname(__file__),
                                'aluminum_shark_openfhe.so')
 AS_LOG('default backend: ', __DEFAULT_BACKEND__)
 

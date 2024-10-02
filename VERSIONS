@@ -1,3 +1,4 @@
 # versions of the dependencies
 SEAL_VERSION=3.7.2
 ALUMINUM_SHARK_TF_VERSION=main
+OPENFHE_VERSION=v1.0.0

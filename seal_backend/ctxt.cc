@@ -46,7 +46,7 @@ void update_memory_manager(const std::string& group) {
 
 SEALCtxt::SEALCtxt(const std::string& name, CONTENT_TYPE content_type,
                    const SEALContext& context)
-    : SEALCtxt(std::move(seal::Ciphertext()), name, content_type, context){};
+    : SEALCtxt(std::move(seal::Ciphertext()), name, content_type, context) {};
 
 SEALCtxt::SEALCtxt(seal::Ciphertext&& ctxt, const std::string& name,
                    CONTENT_TYPE content_type, const SEALContext& context)
@@ -164,8 +164,7 @@ std::shared_ptr<HECtxt> SEALCtxt::operator+(
       _name + " + " + other_ctxt->name(), _content_type, _context);
   try {
     _context._evaluator->add(_internal_ctxt, other_ctxt->sealCiphertext(),
-                             result->sealCiphertext(),
-                             result->sealCiphertext().pool());
+                             result->sealCiphertext());
     count_ctxt_ctxt_add();
   } catch (const std::exception& e) {
     logComputationError(_internal_ctxt, other_ctxt->sealCiphertext(),

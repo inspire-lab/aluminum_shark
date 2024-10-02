@@ -12,7 +12,8 @@ LDFLAGS := -shared -std=c++17
 CXXFLAGS := -O0 -g3 -Wall -shared -std=c++17 -fPIC -DMATHBACKEND=4 -fopenmp
 # Include paths
 INCLUDES := -I../dependencies/openfhe-development/bin/include/openfhe/pke 
-INCLUDES += -I../dependencies/openfhe-development/bin/include/openfhe/core 
+INCLUDES += -I../dependencies/openfhe-development/bin/include/openfhe/core
+INCLUDES += -I../dependencies/openfhe-development/bin/include/openfhe/binfhe 
 INCLUDES += -I../dependencies/openfhe-development/bin/include/openfhe
 INCLUDES += -I../dependencies/tensorflow/tensorflow/compiler/plugin/aluminum_shark
 INCLUDES += -I../dependencies/tensorflow/
