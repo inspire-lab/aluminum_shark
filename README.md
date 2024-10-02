@@ -1,17 +1,17 @@
 # Aluminum Shark
-Privacy Preserving Neural Networks with TensorFlow und Homomorphic Encryption
+Privacy-Preserving Neural Networks with TensorFlow and Homomorphic Encryption
 
-Currently only works on Linux. Tested on Ubunut 20.04
+Currently, it only works on Linux. Tested on Ubunut 20.04
 
-## Creating a conda environment with Alumnium Shark binaries installed
+## Creating a conda environment with Aluminum Shark binaries installed
 
-The easist ways is to use our prebuilt binaries. 
+The easiest way is to use our prebuilt binaries. 
 
 1. Clone the Repository 
 2. Run `tools/install_conda_environment.sh <dir>`. Replace `<dir>` with the path
    to where the conda environment should be installed.
 3. Activate the environment by running `conda activate <dir>` (Note: `<dir>` 
-   needs to be the absoultue path to the installed environment)
+   needs to be the absolute path to the installed environment)
 
 Requirements:
  - Linux 
@@ -22,17 +22,17 @@ Requirements:
 
 ## Build it yourself
 
-To build the code yourself you the following:
+To build the code yourself, you the following:
  - bazel to build TensorFlow (https://bazel.build)
  - CMake to build OpenFHE and SEAL (https://cmake.org)
- - Python 3 with numpy (needs to be usable as `python` not `python3`)
+ - Python 3 with numpy (needs to be usable as `python`, not `python3`)
  - git
 
-Unless specified otherwise all paths are relative to the project root.
+Unless specified otherwise, all paths are relative to the project root.
 
 ### Fetching dependencies 
 
-First we need to download and build the depencies. To download the dependencies 
+First, we need to download and build the dependencies. To download the dependencies 
 run:
 
 ```
@@ -43,14 +43,14 @@ run:
 
 #### Building Custom TensorFlow
 
-We need a custom TensorFlow that can run on encyrpted data. It is automatically
+We need a custom TensorFlow that can run on encrypted data. It is automatically
 downloaded with the script from the last step.
 Go to `dependencies/tensorflow` and run 
 ```
 ./build_and_install.sh
 ```
 This can take quite a long time to build. You can specify the number of build 
-jobs, e.g. when to use 10 run:
+jobs, e.g., to use 10 run:
 ```
 ./build_and_install.sh 10
 ```
@@ -67,7 +67,7 @@ cmake --install build
 ```
 
 
-Next we need to build the SEAL backend. From `seal_backend` run
+Next, we need to build the SEAL backend. From `seal_backend` run
 ```
 make && make install
 ```
@@ -85,7 +85,7 @@ make
 make install
 ```
 
-Next we need to build the OpenFHE backend. From `openfhe_backend` run
+Next, we need to build the OpenFHE backend. From `openfhe_backend` run
 ```
 make && make install
 ```
